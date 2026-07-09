@@ -35,6 +35,26 @@ copy .env.example .env
 Speak in Hindi, English, Hinglish, Tamil, Telugu, Bengali... the bot detects and
 mirrors your language.
 
+## Browser call (share a link, no installs)
+
+```powershell
+.venv\Scripts\python run_web.py -t webrtc     # then open http://localhost:7860
+```
+
+Click **Connect**, allow the microphone, talk. To let someone outside your
+machine test it:
+
+```powershell
+# same WiFi: run with --host 0.0.0.0 and share http://YOUR_LAN_IP:7860
+.venv\Scripts\python run_web.py -t webrtc --host 0.0.0.0
+
+# anywhere: free Cloudflare quick tunnel (winget install Cloudflare.cloudflared)
+cloudflared tunnel --url http://localhost:7860
+# share the https://....trycloudflare.com link it prints
+```
+
+`CLIENT_ID` in `.env` picks which client the agent represents.
+
 ## Dashboard (client onboarding + live call view)
 
 ```powershell

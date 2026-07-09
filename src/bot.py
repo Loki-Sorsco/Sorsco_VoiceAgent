@@ -81,7 +81,7 @@ async def _handle_notify_manager(params: FunctionCallParams):
     await params.result_callback(result)
 
 
-async def run_bot(transport: BaseTransport, client_cfg: dict):
+async def run_bot(transport: BaseTransport, client_cfg: dict, handle_sigint: bool = True):
     """Run one call session on the given transport."""
     stt = SarvamSTTService(api_key=os.environ["SARVAM_API_KEY"])
 
@@ -155,7 +155,7 @@ async def run_bot(transport: BaseTransport, client_cfg: dict):
     await worker.queue_frames([LLMRunFrame()])
 
     logger.info(f"Voice agent ready for client '{client_cfg['client_id']}'. Speak now.")
-    runner = PipelineRunner(handle_sigint=True)
+    runner = PipelineRunner(handle_sigint=handle_sigint)
     await runner.add_workers(worker)
     try:
         await runner.run()
