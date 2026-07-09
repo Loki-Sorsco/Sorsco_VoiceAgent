@@ -1,0 +1,8 @@
+# Server deployment (browser calls) — no [local] extra: pyaudio/mic is only
+# for run_local.py on a desktop and needs system audio libs Linux lacks.
+pipecat-ai[groq,google,anthropic,sarvam,silero,webrtc,runner]>=1.5.0,<2
+python-dotenv
+loguru
+fastapi
+uvicorn
+openai

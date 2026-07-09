@@ -1,0 +1,8 @@
+.venv/
+.env
+.git/
+__pycache__/
+data/leads.json
+data/bot_process.log
+data/call_events.jsonl
+.claude/
