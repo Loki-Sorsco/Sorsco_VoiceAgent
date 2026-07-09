@@ -1,0 +1,23 @@
+{
+  "client_id": "hotel_sunrise",
+  "business_name": "Hotel Sunrise, Jaipur",
+  "agent_name": "Priya",
+  "default_language": "hi-IN",
+  "supported_languages": ["hi-IN", "en-IN", "mr-IN", "ta-IN", "te-IN", "bn-IN", "kn-IN", "gu-IN", "pa-IN"],
+  "tts_voice": "priya",
+  "persona": "You are Priya, a warm and helpful front-desk agent at Hotel Sunrise in Jaipur. You are friendly, patient, and speak naturally like a real person on a phone call.",
+  "knowledge": {
+    "location": "Near Hawa Mahal, Badi Choupad, Jaipur, Rajasthan. 15 minutes from Jaipur railway station, 30 minutes from the airport.",
+    "room_types": [
+      {"type": "standard", "price_per_night_inr": 2500, "description": "Standard AC room, queen bed, city view"},
+      {"type": "deluxe", "price_per_night_inr": 4000, "description": "Deluxe room, king bed, balcony with Hawa Mahal view"},
+      {"type": "suite", "price_per_night_inr": 7500, "description": "Royal suite, living area, jacuzzi, complimentary breakfast"}
+    ],
+    "amenities": "Free WiFi, rooftop restaurant, parking, 24-hour room service, travel desk for sightseeing.",
+    "policies": "Check-in 12 PM, check-out 11 AM. Free cancellation up to 24 hours before check-in. Breakfast included with suite, 350 INR per person otherwise. Pets not allowed."
+  },
+  "manager_contact": {
+    "name": "Rajesh Sharma",
+    "notify_via": "console"
+  }
+}

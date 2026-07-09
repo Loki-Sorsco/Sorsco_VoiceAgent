@@ -1,0 +1,3 @@
+pipecat-ai[google,anthropic,sarvam,silero,local]>=1.5.0,<2
+python-dotenv
+loguru

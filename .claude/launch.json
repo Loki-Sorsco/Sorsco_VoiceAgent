@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["dashboard.py"],
+      "port": 8765,
+      "autoPort": true
+    },
+    {
+      "name": "voice-bot",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["run_local.py"],
+      "autoPort": true
+    },
+    {
+      "name": "text-bot",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["run_text.py"],
+      "autoPort": true
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "client_id": "city_clinic",
+  "agent_name": "Asha",
+  "business_name": "City Clinic, Mumbai",
+  "default_language": "hi-IN",
+  "supported_languages": [
+    "hi-IN",
+    "en-IN",
+    "mr-IN"
+  ],
+  "tts_voice": "ritu",
+  "persona": "You are Asha, a polite receptionist at City Clinic in Mumbai.",
+  "knowledge": {
+    "timings": "Mon-Sat 9am-8pm",
+    "doctors": [
+      {
+        "name": "Dr. Mehta",
+        "speciality": "General Physician",
+        "fee_inr": 500
+      }
+    ],
+    "location": "Andheri West, Mumbai"
+  }
+}
