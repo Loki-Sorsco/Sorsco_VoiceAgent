@@ -55,6 +55,34 @@ cloudflared tunnel --url http://localhost:7860
 
 `CLIENT_ID` in `.env` picks which client the agent represents.
 
+### Self-hosted deployment (Dokploy, host networking)
+
+`docker-compose.yml` runs the container with `network_mode: host` so WebRTC
+audio (UDP) reaches the process directly. Because of that, Dokploy's Domains
+tab can't route to it — add a Traefik dynamic config instead
+(Dokploy → Traefik File System → new file `voice-agent.yml`):
+
+```yaml
+http:
+  routers:
+    voice-agent:
+      rule: Host(`YOUR-DOMAIN-HERE`)
+      entryPoints:
+        - websecure
+      service: voice-agent
+      tls:
+        certResolver: letsencrypt
+  services:
+    voice-agent:
+      loadBalancer:
+        servers:
+          - url: "http://SERVER-IP:7860"
+```
+
+Also remove any domain for this service from the Domains tab (it would
+conflict), and allow inbound UDP on the server firewall (WebRTC media uses
+random high ports).
+
 ## Dashboard (client onboarding + live call view)
 
 ```powershell
