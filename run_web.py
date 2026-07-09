@@ -21,11 +21,21 @@ from pipecat.transports.base_transport import TransportParams  # noqa: E402
 from src.bot import run_bot  # noqa: E402
 from src.config_loader import load_client  # noqa: E402
 
+def _daily_params():
+    # Imported lazily: daily-python has no Windows wheel; only needed on the
+    # server, where Daily's hosted infra carries the audio (works from inside
+    # Docker because the container only makes outbound connections).
+    from pipecat.transports.daily.transport import DailyParams
+
+    return DailyParams(audio_in_enabled=True, audio_out_enabled=True)
+
+
 transport_params = {
     "webrtc": lambda: TransportParams(
         audio_in_enabled=True,
         audio_out_enabled=True,
     ),
+    "daily": _daily_params,
 }
 
 
