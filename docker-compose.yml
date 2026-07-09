@@ -1,0 +1,22 @@
+# Dokploy Compose deployment for the browser-call voice agent.
+# Set GROQ_API_KEY / SARVAM_API_KEY / CLIENT_ID in the service's Environment tab.
+# In Domains: service "voice-agent", port 7860, HTTPS on.
+services:
+  voice-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - SARVAM_API_KEY=${SARVAM_API_KEY}
+      - CLIENT_ID=${CLIENT_ID:-hotel_sunrise}
+      - LLM_PROVIDER=${LLM_PROVIDER:-groq}
+    expose:
+      - "7860"
+    networks:
+      - dokploy-network
+    restart: unless-stopped
+
+networks:
+  dokploy-network:
+    external: true
