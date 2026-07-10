@@ -127,6 +127,26 @@ run_local.py                 # voice entry point (local mic/speakers)
 run_text.py                  # text chat entry point (no audio, no Sarvam needed)
 ```
 
+## Store-triggered outbound calls (Shopify)
+
+The platform can call customers when store events happen — the India wedge:
+
+- **COD confirmation** — new Cash-on-Delivery order → call to confirm (cuts RTO)
+- **Pending payment** — order placed but unpaid → call to close the sale
+- **Abandoned checkout** — cart left behind → call to recover
+
+Configure per client in **/admin**: connect a Shopify store (free dev store
+works — Admin API token + point an `orders/create` webhook at
+`/webhooks/shopify/<client_id>`), toggle triggers with minimum order values.
+No store yet? The **Simulate order** buttons fake the webhook end-to-end.
+
+Queued calls appear in the /admin **Order calls** table. **Take call** arms the
+next browser call as that outbound call (you play the customer) — the agent
+knows the order, confirms/cancels/updates the address via tools, and the
+outcome is recorded (and tagged back onto the Shopify order when a store is
+connected). With telephony (Exotel/Twilio) these calls dial automatically —
+that's the next milestone, and the only part that costs money by nature.
+
 ## Onboarding the next client
 
 1. Add `clients/<new_client>.json` (persona, knowledge, languages, voice).

@@ -31,6 +31,8 @@ from pipecat.transports.base_transport import BaseTransport
 from src.call_events import log_event, reset_events
 from src.config_loader import build_system_prompt
 from src.llm_factory import create_llm
+from src.order_tools import ORDER_TOOLS, build_outbound_prompt, register_order_tools
+from src.store import get_task, update_task
 from src.tools import check_availability, notify_manager
 
 TOOL_SCHEMAS = ToolsSchema(
@@ -81,8 +83,17 @@ async def _handle_notify_manager(params: FunctionCallParams):
     await params.result_callback(result)
 
 
-async def run_bot(transport: BaseTransport, client_cfg: dict, handle_sigint: bool = True):
-    """Run one call session on the given transport."""
+async def run_bot(
+    transport: BaseTransport,
+    client_cfg: dict,
+    handle_sigint: bool = True,
+    call_task: dict | None = None,
+):
+    """Run one call session on the given transport.
+
+    call_task: an outbound order-call task from the call queue (COD confirm,
+    pending payment, abandoned cart). None = normal inbound receptionist call.
+    """
     stt = SarvamSTTService(api_key=os.environ["SARVAM_API_KEY"])
 
     tts = SarvamTTSService(
@@ -97,12 +108,20 @@ async def run_bot(transport: BaseTransport, client_cfg: dict, handle_sigint: boo
     )
 
     llm = create_llm()
-    llm.register_function("check_availability", _handle_check_availability)
-    llm.register_function("notify_manager", _handle_notify_manager)
+    if call_task:
+        register_order_tools(llm, client_cfg, call_task)
+        system_prompt = build_outbound_prompt(client_cfg, call_task)
+        tools = ORDER_TOOLS
+        update_task(call_task["task_id"], status="in_progress")
+    else:
+        llm.register_function("check_availability", _handle_check_availability)
+        llm.register_function("notify_manager", _handle_notify_manager)
+        system_prompt = build_system_prompt(client_cfg)
+        tools = TOOL_SCHEMAS
 
     context = LLMContext(
-        messages=[{"role": "system", "content": build_system_prompt(client_cfg)}],
-        tools=TOOL_SCHEMAS,
+        messages=[{"role": "system", "content": system_prompt}],
+        tools=tools,
     )
     # Slightly stricter than the defaults to resist speaker echo, but low
     # enough that a quiet microphone still triggers turns. min_volume is the
@@ -117,7 +136,12 @@ async def run_bot(transport: BaseTransport, client_cfg: dict, handle_sigint: boo
 
     # Live transcript -> dashboard call view
     reset_events()
-    log_event("call_started", client=client_cfg["business_name"], agent=client_cfg["agent_name"])
+    log_event(
+        "call_started",
+        client=client_cfg["business_name"],
+        agent=client_cfg["agent_name"],
+        order_call=call_task["reason"] if call_task else None,
+    )
 
     @user_aggregator.event_handler("on_user_turn_message_added")
     async def on_user_message(aggregator, message):
@@ -143,17 +167,21 @@ async def run_bot(transport: BaseTransport, client_cfg: dict, handle_sigint: boo
 
     worker = PipelineWorker(pipeline, params=PipelineParams(enable_metrics=True))
 
-    # Greet the caller as soon as the session starts.
-    context.add_message(
-        {
-            "role": "developer",
-            "content": (
-                "The call just connected. Greet the caller warmly in one short sentence "
-                f"as {client_cfg['agent_name']} from {client_cfg['business_name']} and "
-                "ask how you can help. Use polite Hindi with easy English words."
-            ),
-        }
-    )
+    # Greet as soon as the session starts.
+    if call_task:
+        opening = (
+            "The customer just answered the phone. Greet them politely as "
+            f"{client_cfg['agent_name']} from {client_cfg['business_name']}, confirm "
+            "you are speaking with the right person, and state in one short sentence "
+            "why you are calling. Use polite Hindi with easy English words."
+        )
+    else:
+        opening = (
+            "The call just connected. Greet the caller warmly in one short sentence "
+            f"as {client_cfg['agent_name']} from {client_cfg['business_name']} and "
+            "ask how you can help. Use polite Hindi with easy English words."
+        )
+    context.add_message({"role": "developer", "content": opening})
     await worker.queue_frames([LLMRunFrame()])
 
     logger.info(f"Voice agent ready for client '{client_cfg['client_id']}'. Speak now.")
@@ -163,3 +191,7 @@ async def run_bot(transport: BaseTransport, client_cfg: dict, handle_sigint: boo
         await runner.run()
     finally:
         log_event("call_ended")
+        if call_task:
+            latest = get_task(call_task["task_id"])
+            if latest and latest.get("status") == "in_progress":
+                update_task(call_task["task_id"], status="done", outcome="no_outcome")

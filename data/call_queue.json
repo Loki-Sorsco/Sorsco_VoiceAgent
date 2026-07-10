@@ -1,0 +1,14 @@
+[
+  {
+    "task_id": "b15c51a7",
+    "client_id": "hotel_sunrise",
+    "order_id": "1101",
+    "customer_name": "Rahul Sharma",
+    "customer_phone": "+919876501234",
+    "reason": "Confirm this Cash-on-Delivery order and verify the delivery address",
+    "flow": "cod_confirm",
+    "status": "in_progress",
+    "outcome": null,
+    "created": "2026-07-10 18:34:53"
+  }
+]

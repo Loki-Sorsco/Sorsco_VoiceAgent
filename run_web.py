@@ -27,6 +27,7 @@ from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams  # noqa:
 from src.admin import get_active_client_id, register_admin  # noqa: E402
 from src.bot import run_bot  # noqa: E402
 from src.config_loader import load_client  # noqa: E402
+from src.store import get_active_task, set_active_task  # noqa: E402
 
 
 class RewritePublicWsUrl(BaseHTTPMiddleware):
@@ -89,6 +90,17 @@ transport_params = {
 async def bot(runner_args: RunnerArguments):
     """Called by the Pipecat runner for every browser connection."""
     transport = await create_transport(runner_args, transport_params)
+
+    # If an order call was "taken" in /admin, this connection becomes that
+    # outbound call (demo mode: the browser user plays the customer). The task
+    # is consumed so the following call is a normal inbound session again.
+    call_task = get_active_task()
+    if call_task and call_task.get("status") == "queued":
+        set_active_task(None)
+        client_cfg = load_client(call_task["client_id"])
+        await run_bot(transport, client_cfg, handle_sigint=False, call_task=call_task)
+        return
+
     # Active client is switchable at runtime from /admin (falls back to env).
     client_cfg = load_client(
         get_active_client_id(default=os.environ.get("CLIENT_ID", "hotel_sunrise"))
