@@ -23,7 +23,15 @@ services:
     networks:
       - dokploy-network
     restart: unless-stopped
+    volumes:
+      # Clients created via /admin survive redeploys.
+      - voice-agent-clients:/app/clients
+      - voice-agent-data:/app/data
 
 networks:
   dokploy-network:
     external: true
+
+volumes:
+  voice-agent-clients:
+  voice-agent-data:

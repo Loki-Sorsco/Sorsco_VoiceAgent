@@ -24,6 +24,7 @@ from pipecat.serializers.protobuf import ProtobufFrameSerializer  # noqa: E402
 from pipecat.transports.base_transport import TransportParams  # noqa: E402
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams  # noqa: E402
 
+from src.admin import get_active_client_id, register_admin  # noqa: E402
 from src.bot import run_bot  # noqa: E402
 from src.config_loader import load_client  # noqa: E402
 
@@ -88,7 +89,10 @@ transport_params = {
 async def bot(runner_args: RunnerArguments):
     """Called by the Pipecat runner for every browser connection."""
     transport = await create_transport(runner_args, transport_params)
-    client_cfg = load_client(os.environ.get("CLIENT_ID", "hotel_sunrise"))
+    # Active client is switchable at runtime from /admin (falls back to env).
+    client_cfg = load_client(
+        get_active_client_id(default=os.environ.get("CLIENT_ID", "hotel_sunrise"))
+    )
     await run_bot(transport, client_cfg, handle_sigint=False)
 
 
@@ -96,4 +100,5 @@ if __name__ == "__main__":
     from pipecat.runner import run as _runner
 
     _runner.app.add_middleware(RewritePublicWsUrl)
+    register_admin(_runner.app)
     _runner.main()

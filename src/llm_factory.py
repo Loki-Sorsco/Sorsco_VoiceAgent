@@ -9,7 +9,9 @@ The rest of the pipeline never knows which provider is running.
 
 import os
 
-DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+# gpt-oss-120b: native tool calling (llama-3.3 sometimes leaks tool calls as
+# literal "<function=...>" text into replies, which then gets spoken).
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 
 
 def create_llm():
