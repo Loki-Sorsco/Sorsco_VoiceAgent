@@ -28,7 +28,7 @@ from pipecat.services.sarvam.stt import SarvamSTTService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.base_transport import BaseTransport
 
-from src.call_events import log_event, reset_events
+from src.call_events import append_history, log_event, read_events, reset_events
 from src.config_loader import build_system_prompt
 from src.llm_factory import create_llm
 from src.order_tools import ORDER_TOOLS, build_outbound_prompt, register_order_tools
@@ -167,6 +167,24 @@ async def run_bot(
 
     worker = PipelineWorker(pipeline, params=PipelineParams(enable_metrics=True))
 
+    # End the session the moment the caller hangs up / closes the page —
+    # otherwise the pipeline lingers until idle-timeout and history/outcomes
+    # are written minutes late. (LocalAudioTransport has no such event.)
+    try:
+
+        @transport.event_handler("on_client_disconnected")
+        async def _on_client_disconnected(_transport, _client):
+            logger.info("Client disconnected — ending call session")
+            await worker.cancel()
+
+        @transport.event_handler("on_session_timeout")
+        async def _on_session_timeout(_transport, _client):
+            logger.info("Session timeout — ending call session")
+            await worker.cancel()
+
+    except Exception:
+        pass
+
     # Greet as soon as the session starts.
     if call_task:
         opening = (
@@ -187,11 +205,37 @@ async def run_bot(
     logger.info(f"Voice agent ready for client '{client_cfg['client_id']}'. Speak now.")
     runner = PipelineRunner(handle_sigint=handle_sigint)
     await runner.add_workers(worker)
+    import time as _time
+
+    started = _time.time()
     try:
         await runner.run()
     finally:
         log_event("call_ended")
+        outcome = None
         if call_task:
             latest = get_task(call_task["task_id"])
             if latest and latest.get("status") == "in_progress":
                 update_task(call_task["task_id"], status="done", outcome="no_outcome")
+            latest = get_task(call_task["task_id"])
+            outcome = (latest or {}).get("outcome")
+        try:
+            events = read_events()
+            append_history(
+                {
+                    "client_id": client_cfg["client_id"],
+                    "client": client_cfg["business_name"],
+                    "agent": client_cfg["agent_name"],
+                    "kind": call_task["flow"] if call_task else "inbound",
+                    "order_id": call_task["order_id"] if call_task else None,
+                    "outcome": outcome,
+                    "started": events[0]["time"] if events else "",
+                    "duration_s": int(_time.time() - started),
+                    "turns": sum(1 for e in events if e["type"] in ("user", "assistant")),
+                    "transcript": [
+                        e for e in events if e["type"] in ("user", "assistant", "tool")
+                    ],
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Could not write call history: {e}")

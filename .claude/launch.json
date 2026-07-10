@@ -2,6 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "web-server",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["run_web.py", "--host", "0.0.0.0", "--port", "7860"],
+      "port": 7860,
+      "autoPort": false
+    },
+    {
       "name": "dashboard",
       "runtimeExecutable": ".venv\\Scripts\\python.exe",
       "runtimeArgs": ["dashboard.py"],

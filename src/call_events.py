@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 EVENTS_FILE = Path(__file__).resolve().parent.parent / "data" / "call_events.jsonl"
+HISTORY_FILE = Path(__file__).resolve().parent.parent / "data" / "call_history.jsonl"
 
 
 def reset_events():
@@ -49,3 +50,24 @@ def count_events() -> int:
         return 0
     with open(EVENTS_FILE, encoding="utf-8") as f:
         return sum(1 for line in f if line.strip())
+
+
+def append_history(record: dict):
+    """Persist one finished call (summary + transcript) to the history log."""
+    HISTORY_FILE.parent.mkdir(exist_ok=True)
+    with open(HISTORY_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def read_history(limit: int = 100) -> list[dict]:
+    if not HISTORY_FILE.exists():
+        return []
+    records = []
+    with open(HISTORY_FILE, encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    return records[-limit:][::-1]
