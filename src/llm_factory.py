@@ -23,7 +23,10 @@ def create_llm():
         return GroqLLMService(
             api_key=os.environ["GROQ_API_KEY"],
             settings=GroqLLMService.Settings(
-                model=os.environ.get("LLM_MODEL", DEFAULT_GROQ_MODEL)
+                model=os.environ.get("LLM_MODEL", DEFAULT_GROQ_MODEL),
+                # gpt-oss is a reasoning model; low effort = it stops "thinking"
+                # for seconds before speaking. Phone calls need fast turns.
+                extra={"reasoning_effort": "low"},
             ),
         )
 

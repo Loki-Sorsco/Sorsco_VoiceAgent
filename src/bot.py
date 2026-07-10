@@ -91,6 +91,8 @@ async def run_bot(transport: BaseTransport, client_cfg: dict, handle_sigint: boo
             model="bulbul:v3",
             voice=client_cfg.get("tts_voice", "priya"),
             language=client_cfg.get("default_language", "hi-IN"),
+            # Slightly brisker than default — closer to natural phone-agent pace.
+            pace=1.15,
         ),
     )
 
