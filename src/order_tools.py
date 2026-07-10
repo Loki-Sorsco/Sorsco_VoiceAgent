@@ -148,19 +148,27 @@ def build_outbound_prompt(client_cfg: dict, task: dict) -> str:
     )
     languages = ", ".join(client_cfg.get("supported_languages", ["hi-IN", "en-IN"]))
 
+    if task.get("flow") == "campaign":
+        details = f"""CALL CONTEXT:
+- Customer: {order.get('customer_name') or 'the customer'}
+- Purpose of this call: {task['reason']}
+Use the business knowledge from your persona/knowledge to answer questions."""
+    else:
+        details = f"""ORDER DETAILS (only source of truth — never invent anything):
+- Order: {order.get('order_number', task['order_id'])}
+- Customer: {order.get('customer_name') or 'the customer'}
+- Items: {items or 'not listed'}
+- Total: ₹{order.get('total', '?')} ({order.get('payment_gateway') or 'payment method unknown'})
+- Payment status: {order.get('financial_status') or 'unknown'}
+- Delivery address: {order.get('address') or 'not on file'}"""
+
     return f"""{client_cfg['persona']}
 
 You are making an OUTBOUND phone call to a customer of {client_cfg['business_name']}.
 
 WHY YOU ARE CALLING: {task['reason']}.
 
-ORDER DETAILS (only source of truth — never invent anything):
-- Order: {order.get('order_number', task['order_id'])}
-- Customer: {order.get('customer_name') or 'the customer'}
-- Items: {items or 'not listed'}
-- Total: ₹{order.get('total', '?')} ({order.get('payment_gateway') or 'payment method unknown'})
-- Payment status: {order.get('financial_status') or 'unknown'}
-- Delivery address: {order.get('address') or 'not on file'}
+{details}
 
 HOW TO RUN THIS CALL:
 1. Greet, say who you are and which business you're calling from, and confirm

@@ -17,9 +17,14 @@ from fastapi.responses import HTMLResponse, Response
 from loguru import logger
 
 from src.admin_ui import ADMIN_PAGE
-from src.call_events import read_history
+from src.call_events import count_events, read_events, read_history
 from src.store import get_task, list_tasks, set_active_task, update_task
-from src.triggers import DEFAULT_TRIGGERS, evaluate
+from src.triggers import (
+    DEFAULT_TRIGGERS,
+    evaluate,
+    queue_manual_call,
+    woocommerce_to_shopify,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 CLIENTS_DIR = ROOT / "clients"
@@ -204,6 +209,99 @@ def register_admin(app: FastAPI):
     def dismiss_task(task_id: str):
         update_task(task_id, status="done", outcome="dismissed")
         return {"dismissed": task_id}
+
+    # ------------------------------------------- more integrations & extras
+
+    @app.post("/webhooks/woocommerce/{client_id}")
+    async def woocommerce_webhook(client_id: str, request: Request):
+        cfg = _load_client(client_id)
+        try:
+            payload = json.loads(await request.body())
+        except json.JSONDecodeError:
+            raise HTTPException(400, "Invalid JSON")
+        task = evaluate("orders/create", woocommerce_to_shopify(payload), cfg)
+        return {"received": "woocommerce order", "call_queued": task["task_id"] if task else None}
+
+    @app.post("/webhooks/generic/{client_id}")
+    async def generic_webhook(client_id: str, body: dict):
+        """Universal trigger: any system (Zapier, Sheets, your CRM) queues a call.
+
+        Body: {"name": "...", "phone": "...", "purpose": "why the agent should call"}
+        """
+        cfg = _load_client(client_id)
+        name = body.get("name") or body.get("customer_name") or "the customer"
+        phone = body.get("phone") or body.get("customer_phone") or ""
+        purpose = body.get("purpose") or body.get("reason") or "Follow up with this customer"
+        task = queue_manual_call(cfg, name, phone, purpose)
+        return {"call_queued": task["task_id"]}
+
+    @app.post("/api/campaign/{client_id}")
+    def campaign(client_id: str, body: dict):
+        """Bulk calls: entries [{name, phone}] + one purpose for all of them."""
+        cfg = _load_client(client_id)
+        purpose = (body.get("purpose") or "").strip()
+        entries = body.get("entries") or []
+        if not purpose:
+            raise HTTPException(400, "Purpose is required")
+        if not entries:
+            raise HTTPException(400, "No contacts given")
+        tasks = [
+            queue_manual_call(cfg, e.get("name", "the customer"), e.get("phone", ""), purpose)
+            for e in entries[:200]
+        ]
+        return {"queued": len(tasks)}
+
+    @app.get("/api/shopify/test/{client_id}")
+    async def shopify_test(client_id: str):
+        cfg = _load_client(client_id)
+        shop = cfg.get("shopify") or {}
+        domain, token = shop.get("domain"), shop.get("access_token")
+        if not (domain and token):
+            raise HTTPException(400, "Store domain and access token are not set")
+        try:
+            import aiohttp
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"https://{domain}/admin/api/2024-10/shop.json",
+                    headers={"X-Shopify-Access-Token": token},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        return {"ok": True, "shop": data.get("shop", {}).get("name", domain)}
+                    raise HTTPException(400, f"Shopify answered HTTP {r.status} — check the token")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(400, f"Could not reach the store: {e}")
+
+    @app.post("/api/chat-test/{client_id}")
+    def chat_test(client_id: str, body: dict):
+        """Text-only agent test for the console (no voice, no tools)."""
+        from src.config_loader import build_system_prompt
+        from src.llm_factory import chat_complete
+
+        cfg = _load_client(client_id)
+        messages = (body.get("messages") or [])[-12:]
+        try:
+            reply = chat_complete(build_system_prompt(cfg), messages)
+            return {"reply": reply}
+        except Exception as e:
+            logger.warning(f"chat-test failed: {e}")
+            raise HTTPException(500, str(e))
+
+    @app.post("/api/queue/{task_id}/requeue")
+    def requeue_task(task_id: str):
+        task = get_task(task_id)
+        if not task:
+            raise HTTPException(404, "No such task")
+        update_task(task_id, status="queued", outcome=None)
+        return {"requeued": task_id}
+
+    @app.get("/api/events")
+    def live_events(since: int = 0):
+        return {"events": read_events(since), "count": count_events()}
 
     # ------------------------------------------------------ history & stats
 

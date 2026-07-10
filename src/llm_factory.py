@@ -53,3 +53,26 @@ def create_llm():
     raise ValueError(
         f"Unknown LLM_PROVIDER '{provider}'. Use 'groq', 'google' or 'anthropic'."
     )
+
+
+def chat_complete(system_prompt: str, messages: list[dict]) -> str:
+    """One-shot text completion for the console's chat-test (no tools, no voice)."""
+    from openai import OpenAI
+
+    provider = os.environ.get("LLM_PROVIDER", "groq").lower()
+    endpoints = {
+        "groq": ("https://api.groq.com/openai/v1", "GROQ_API_KEY", DEFAULT_GROQ_MODEL),
+        "google": (
+            "https://generativelanguage.googleapis.com/v1beta/openai/",
+            "GOOGLE_API_KEY",
+            "gemini-2.5-flash-lite",
+        ),
+    }
+    base_url, key_env, default_model = endpoints.get(provider, endpoints["groq"])
+    client = OpenAI(api_key=os.environ[key_env], base_url=base_url)
+    r = client.chat.completions.create(
+        model=os.environ.get("LLM_MODEL", default_model),
+        messages=[{"role": "system", "content": system_prompt}, *messages],
+        max_tokens=400,
+    )
+    return r.choices[0].message.content or ""

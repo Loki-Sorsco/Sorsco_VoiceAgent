@@ -29,6 +29,58 @@ FLOW_DESCRIPTIONS = {
 }
 
 
+def queue_manual_call(client_cfg: dict, name: str, phone: str, purpose: str) -> dict:
+    """Queue a campaign/manual call that isn't tied to a store order."""
+    import uuid
+
+    order = {
+        "order_id": "manual-" + uuid.uuid4().hex[:6],
+        "order_number": "",
+        "client_id": client_cfg["client_id"],
+        "customer_name": name,
+        "customer_phone": phone,
+        "total": "",
+        "currency": "INR",
+        "items": [],
+        "payment_gateway": "",
+        "financial_status": "",
+        "address": "",
+        "status": "new",
+    }
+    save_order(order)
+    return add_task(client_cfg["client_id"], order, purpose, "campaign")
+
+
+def woocommerce_to_shopify(payload: dict) -> dict:
+    """Map a WooCommerce order webhook into the Shopify-ish shape we normalize."""
+    billing = payload.get("billing") or {}
+    return {
+        "id": payload.get("id"),
+        "name": "#" + str(payload.get("number") or payload.get("id") or ""),
+        "total_price": str(payload.get("total", "0")),
+        "currency": payload.get("currency", "INR"),
+        "financial_status": "pending" if payload.get("status") in ("pending", "on-hold") else "",
+        "payment_gateway_names": [payload.get("payment_method_title") or payload.get("payment_method", "")],
+        "customer": {
+            "first_name": billing.get("first_name", ""),
+            "last_name": billing.get("last_name", ""),
+            "phone": billing.get("phone", ""),
+        },
+        "shipping_address": {
+            "address1": billing.get("address_1", ""),
+            "city": billing.get("city", ""),
+            "province": billing.get("state", ""),
+            "zip": billing.get("postcode", ""),
+            "phone": billing.get("phone", ""),
+        },
+        "line_items": [
+            {"title": li.get("name", "item"), "quantity": li.get("quantity", 1),
+             "price": str(li.get("total", "0"))}
+            for li in payload.get("line_items", [])
+        ],
+    }
+
+
 def normalize_shopify_order(payload: dict, client_id: str) -> dict:
     """Flatten the fields the agent needs from a Shopify order/checkout payload."""
     customer = payload.get("customer") or {}

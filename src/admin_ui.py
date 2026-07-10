@@ -163,6 +163,7 @@ ADMIN_PAGE = r"""<!doctype html>
   .dot.mid { background:var(--warn); }
   #captions { min-height:150px; max-height:300px; overflow-y:auto; background:var(--bg);
     border:1px solid var(--line); border-radius:10px; padding:14px; }
+  @media (max-width:900px) { .ovgrid { grid-template-columns:1fr !important; } }
   @media (max-width:760px) { aside { width:60px; } .logo,.nav .tx,aside .foot { display:none; }
     main { padding:18px 14px 60px; } }
 </style>
@@ -174,6 +175,7 @@ ADMIN_PAGE = r"""<!doctype html>
     <button data-v="overview" class="on"><span class="ic">◧</span><span class="tx">Overview</span></button>
     <button data-v="agents"><span class="ic">☻</span><span class="tx">Agents</span></button>
     <button data-v="calls"><span class="ic">✆</span><span class="tx">Calls</span></button>
+    <button data-v="integrations"><span class="ic">⚡</span><span class="tx">Integrations</span></button>
   </div>
   <div class="foot">Full call page:<br><a href="/client/" target="_blank">/client/ ↗</a></div>
 </aside>
@@ -188,12 +190,23 @@ ADMIN_PAGE = r"""<!doctype html>
       <button class="btn" onclick="openTest()">▶ Test active agent</button>
     </div>
     <div class="tiles" id="tiles"></div>
-    <div class="card">
-      <div class="topbar" style="margin-bottom:8px">
-        <div class="grow"><b>Calls waiting</b> <span class="hint">— queued by store events</span></div>
-        <button class="btn ghost small" onclick="show('calls')">See all calls →</button>
+    <div id="checklist" class="card" style="margin-bottom:16px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="ovgrid">
+      <div class="card">
+        <div class="topbar" style="margin-bottom:8px">
+          <div class="grow"><b>Calls waiting</b> <span class="hint">— queued by store events</span></div>
+          <button class="btn ghost small" onclick="show('calls')">See all →</button>
+        </div>
+        <div class="tablewrap"><table id="queuePreview"><tbody></tbody></table></div>
       </div>
-      <div class="tablewrap"><table id="queuePreview"><tbody></tbody></table></div>
+      <div class="card">
+        <div class="topbar" style="margin-bottom:8px">
+          <div class="grow"><b>Live call</b> <span class="dot" id="liveDot" style="display:inline-block"></span></div>
+        </div>
+        <div id="livePanel" style="max-height:280px;overflow-y:auto">
+          <span class="hint">When a call is running, the conversation streams here in real time.</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -219,6 +232,7 @@ ADMIN_PAGE = r"""<!doctype html>
       <button class="on" data-t="profile">Profile</button>
       <button data-t="knowledge">Business info</button>
       <button data-t="store">Store & triggers</button>
+      <button data-t="chat">Chat test</button>
     </div>
 
     <div class="tabpane on" id="t-profile"><div class="card" style="max-width:640px">
@@ -301,7 +315,23 @@ ADMIN_PAGE = r"""<!doctype html>
         <input type="number" id="tr_cart_min" min="0" placeholder="Min ₹">
       </div>
     </div></div>
+
+    <div class="tabpane" id="t-chat"><div class="card" style="max-width:640px">
+      <p class="hint" style="margin-top:0">Chat with this agent in text to check its knowledge —
+        instant and free, no microphone needed. <b>Save the agent first</b> to test the latest edits.</p>
+      <div id="chatLog" style="min-height:180px;max-height:340px;overflow-y:auto;background:var(--bg);
+        border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px">
+        <span class="hint">Ask something a customer would — “deluxe room ka price kya hai?”</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input id="chatInput" placeholder="Type a customer message…"
+          onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn" onclick="sendChat()">Send</button>
+      </div>
+    </div></div>
   </div>
+
+  <!-- ============ CHAT TEST (editor tab) placed with editor panes ============ -->
 
   <!-- ============ CALLS ============ -->
   <div class="view" id="v-calls">
@@ -309,6 +339,7 @@ ADMIN_PAGE = r"""<!doctype html>
       <div class="grow"><h1>Calls</h1><div class="sub">Queued order calls and full history with transcripts.</div></div>
       <button class="btn ghost" onclick="simulate('cod')">＋ Simulate COD order</button>
       <button class="btn ghost" onclick="simulate('pending')">＋ Simulate pending payment</button>
+      <button class="btn" onclick="openModal('mCampaign')">📢 New campaign</button>
     </div>
     <div class="card" style="margin-bottom:16px">
       <b>Queue</b>
@@ -317,11 +348,27 @@ ADMIN_PAGE = r"""<!doctype html>
         <tbody></tbody></table></div>
     </div>
     <div class="card">
-      <b>History</b>
+      <div class="topbar" style="margin-bottom:8px">
+        <div class="grow"><b>History</b></div>
+        <input id="histSearch" placeholder="Search transcripts…" style="width:220px"
+          oninput="renderHistory()">
+        <button class="btn ghost small" onclick="exportCsv()">⬇ Export CSV</button>
+      </div>
       <div class="tablewrap"><table id="histTable">
         <thead><tr><th>Started</th><th>Agent</th><th>Type</th><th>Outcome</th><th>Length</th><th></th></tr></thead>
         <tbody></tbody></table></div>
     </div>
+  </div>
+
+  <!-- ============ INTEGRATIONS ============ -->
+  <div class="view" id="v-integrations">
+    <div class="topbar">
+      <div class="grow"><h1>Integrations</h1>
+        <div class="sub">Connect the tools your business already uses — the agent reacts to their events.</div></div>
+      <select id="integAgent" style="width:230px" onchange="renderIntegrations()"></select>
+    </div>
+    <div class="agents" id="integGrid"></div>
+    <div class="card" id="integDetail" style="margin-top:16px;display:none"></div>
   </div>
 </main>
 
@@ -331,6 +378,27 @@ ADMIN_PAGE = r"""<!doctype html>
     <div class="head"><h3 id="trTitle">Transcript</h3>
       <button class="btn ghost small" onclick="closeModal('mTranscript')">Close</button></div>
     <div class="body" id="trBody"></div>
+  </div>
+</div>
+
+<!-- campaign modal -->
+<div class="modal" id="mCampaign">
+  <div class="box">
+    <div class="head"><h3>New call campaign</h3>
+      <button class="btn ghost small" onclick="closeModal('mCampaign')">Close</button></div>
+    <div class="body">
+      <label style="margin-top:0">Agent</label>
+      <select id="campAgent"></select>
+      <label>What should the agent do on each call?</label>
+      <textarea id="campPurpose" rows="2"
+        placeholder="Invite the customer to our Diwali sale — 20% off till Sunday. Answer questions about products."></textarea>
+      <label>Contacts — one per line: Name, phone</label>
+      <textarea id="campList" rows="6" placeholder="Rahul Sharma, +919876501234
+Priya Patel, +919812345678"></textarea>
+      <div class="btns"><button class="btn" onclick="startCampaign()">Queue calls</button></div>
+      <p class="hint">Calls are queued instantly. With telephony connected they dial automatically;
+        for now use ▶ Take call on each to test in the browser.</p>
+    </div>
   </div>
 </div>
 
@@ -371,7 +439,7 @@ function toast(msg, err) {
 function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 
 /* ---------------- navigation ---------------- */
-const views = ['overview','agents','calls','editor'];
+const views = ['overview','agents','calls','editor','integrations'];
 function show(v) {
   views.forEach(x => document.getElementById('v-'+x).classList.toggle('on', x === v));
   document.querySelectorAll('.nav button').forEach(b =>
@@ -379,6 +447,15 @@ function show(v) {
   if (v === 'overview') { loadStats(); pollQueue(); }
   if (v === 'agents') loadAgents();
   if (v === 'calls') { pollQueue(); loadHistory(); }
+  if (v === 'integrations') initIntegrations();
+}
+function openModal(id) {
+  if (id === 'mCampaign') {
+    document.getElementById('campAgent').innerHTML = CLIENTS.map(c =>
+      `<option value="${c.client_id}">${esc(c.business_name)}</option>`).join('');
+    document.getElementById('campAgent').value = ACTIVE || (CLIENTS[0] && CLIENTS[0].client_id) || '';
+  }
+  document.getElementById(id).classList.add('on');
 }
 document.querySelectorAll('.nav button').forEach(b => b.onclick = () => show(b.dataset.v));
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
@@ -399,8 +476,61 @@ async function loadStats() {
       <div class="tile"><div class="k">Cancelled</div><div class="v">${s.cancelled}</div></div>
       <div class="tile"><div class="k">Revenue confirmed</div><div class="v">₹${s.revenue_confirmed.toLocaleString('en-IN')}</div></div>
       <div class="tile"><div class="k">Talk time</div><div class="v">${s.minutes}<small> min</small></div></div>`;
+    renderChecklist(s);
   } catch(e) {}
 }
+async function renderChecklist(s) {
+  if (!CLIENTS.length) { try { const d = await api('/api/clients'); CLIENTS = d.clients; ACTIVE = d.active; } catch(e){} }
+  const anyShop = CLIENTS.some(c => c.shopify_connected);
+  const steps = [
+    ['Create your first agent', CLIENTS.length > 0, () => show('agents')],
+    ['Make a test call', s.calls_total > 0, () => openTest()],
+    ['Connect a store or webhook', anyShop, () => show('integrations')],
+    ['Get an order call confirmed', s.confirmed > 0, () => show('calls')],
+  ];
+  const doneN = steps.filter(x => x[1]).length;
+  if (doneN === steps.length) { document.getElementById('checklist').style.display = 'none'; return; }
+  window._CHECK = steps;
+  document.getElementById('checklist').innerHTML =
+    `<b>Getting started</b> <span class="hint">${doneN}/${steps.length} done</span>
+     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">` +
+    steps.map((st, i) =>
+      `<button class="btn ghost small" ${st[1] ? 'style="opacity:.55"' : ''}
+        onclick="window._CHECK[${i}][2]()">${st[1] ? '✓' : (i+1) + '.'} ${st[0]}</button>`).join('')
+    + '</div>';
+}
+
+/* ---------------- live call panel ---------------- */
+let liveSeen = 0, liveOn = false;
+async function pollLive() {
+  if (!document.getElementById('v-overview').classList.contains('on')) return;
+  try {
+    const d = await api('/api/events?since=' + liveSeen);
+    if (d.count < liveSeen) { liveSeen = 0; document.getElementById('livePanel').innerHTML = ''; return; }
+    if (!d.events.length) return;
+    liveSeen = d.count;
+    const p = document.getElementById('livePanel');
+    if (p.querySelector('.hint')) p.innerHTML = '';
+    d.events.forEach(e => {
+      if (e.type === 'call_started') { liveOn = true; p.innerHTML = ''; }
+      if (e.type === 'call_ended') liveOn = false;
+      if (e.type === 'user' || e.type === 'assistant') {
+        const b = document.createElement('div');
+        b.className = 'bub ' + e.type;
+        b.innerHTML = `<div class="w">${e.type === 'user' ? 'Caller' : 'Agent'} · ${e.time}</div>${esc(e.text)}`;
+        p.appendChild(b);
+      } else if (e.type === 'tool') {
+        const b = document.createElement('div');
+        b.className = 'bub tool'; b.textContent = '⚙ ' + e.name;
+        p.appendChild(b);
+      }
+    });
+    while (p.children.length > 12) p.removeChild(p.firstChild);
+    p.scrollTop = p.scrollHeight;
+    document.getElementById('liveDot').className = 'dot' + (liveOn ? ' live' : '');
+  } catch(e) {}
+}
+setInterval(pollLive, 2500);
 
 /* ---------------- agents ---------------- */
 let CLIENTS = [], ACTIVE = '';
@@ -438,7 +568,9 @@ async function makeActive(id) {
 /* ---------------- editor ---------------- */
 let EDITING = null, RAW = {};
 function editAgent(id) {
-  EDITING = id; RAW = {};
+  EDITING = id; RAW = {}; CHAT = [];
+  const cl = document.getElementById('chatLog');
+  if (cl) cl.innerHTML = '<span class="hint">Ask something a customer would — “deluxe room ka price kya hai?”</span>';
   show('editor');
   document.getElementById('edTitle').textContent = id ? 'Edit agent' : 'New agent';
   document.getElementById('f_id').disabled = !!id;
@@ -576,8 +708,15 @@ function queueRow(t, compact) {
         ${t.outcome ? '<br><span class="hint">' + esc(t.outcome) + '</span>' : ''}</td>
     <td style="white-space:nowrap">${t.status === 'queued'
       ? `<button class="btn small" onclick="takeAndTest('${t.task_id}')">▶ Take call</button>
-         <button class="btn ghost small" onclick="dismissTask('${t.task_id}')">✕</button>` : ''}</td>
+         <button class="btn ghost small" onclick="dismissTask('${t.task_id}')">✕</button>`
+      : (t.status === 'done' || t.status === 'callback')
+      ? `<button class="btn ghost small" title="Queue this call again"
+           onclick="requeueTask('${t.task_id}')">↺ Call again</button>` : ''}</td>
   </tr>`;
+}
+async function requeueTask(id) {
+  await api('/api/queue/' + id + '/requeue', {method:'POST'});
+  toast('Call queued again'); pollQueue();
 }
 async function pollQueue() {
   try {
@@ -600,17 +739,178 @@ async function dismissTask(id) { await api('/api/queue/' + id + '/dismiss', {met
 async function loadHistory() {
   try {
     const d = await api('/api/history');
-    document.querySelector('#histTable tbody').innerHTML = d.calls.map((c, i) => `
+    window._HIST = d.calls;
+    renderHistory();
+  } catch(e) {}
+}
+function renderHistory() {
+  const q = (document.getElementById('histSearch').value || '').toLowerCase();
+  const calls = (window._HIST || []).filter(c => !q ||
+    JSON.stringify(c).toLowerCase().includes(q));
+  document.querySelector('#histTable tbody').innerHTML = calls.map(c => `
       <tr>
         <td>${esc(c.started || '')}</td>
         <td>${esc(c.agent)} <span class="hint">· ${esc(c.client)}</span></td>
         <td><span class="pill ${c.kind === 'inbound' ? 'inbound' : 'in_progress'}">${c.kind.replace(/_/g,' ')}</span></td>
         <td>${c.outcome ? `<span class="pill ${c.outcome}">${c.outcome}</span>` : '—'}</td>
         <td>${c.duration_s}s · ${c.turns} turns</td>
-        <td><button class="btn ghost small" onclick="showTranscript(${i})">View</button></td>
+        <td><button class="btn ghost small"
+          onclick="showTranscript(${window._HIST.indexOf(c)})">View</button></td>
       </tr>`).join('') || '<tr><td colspan="6" class="hint">No calls yet.</td></tr>';
-    window._HIST = d.calls;
-  } catch(e) {}
+}
+function exportCsv() {
+  const rows = [['started','agent','client','type','outcome','duration_s','turns']];
+  (window._HIST || []).forEach(c => rows.push(
+    [c.started, c.agent, c.client, c.kind, c.outcome || '', c.duration_s, c.turns]));
+  const csv = rows.map(r => r.map(v => '"' + String(v ?? '').replace(/"/g,'""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = 'call-history.csv'; a.click();
+}
+
+/* ---------------- chat test ---------------- */
+let CHAT = [];
+async function sendChat() {
+  const inp = document.getElementById('chatInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  const id = EDITING || document.getElementById('f_id').value.trim();
+  if (!id) { toast('Save the agent first', true); return; }
+  inp.value = '';
+  const log = document.getElementById('chatLog');
+  if (log.querySelector('.hint')) log.innerHTML = '';
+  CHAT.push({role:'user', content:text});
+  log.innerHTML += `<div class="bub user"><div class="w">You</div>${esc(text)}</div>`;
+  log.scrollTop = log.scrollHeight;
+  try {
+    const r = await api('/api/chat-test/' + id, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({messages: CHAT})});
+    CHAT.push({role:'assistant', content:r.reply});
+    log.innerHTML += `<div class="bub assistant"><div class="w">Agent</div>${esc(r.reply)}</div>`;
+    log.scrollTop = log.scrollHeight;
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ---------------- campaigns ---------------- */
+async function startCampaign() {
+  const id = document.getElementById('campAgent').value;
+  const purpose = document.getElementById('campPurpose').value.trim();
+  const entries = document.getElementById('campList').value.split('\n')
+    .map(l => l.trim()).filter(Boolean)
+    .map(l => { const [name, ...rest] = l.split(','); return {name: name.trim(), phone: rest.join(',').trim()}; });
+  if (!purpose || !entries.length) { toast('Purpose and at least one contact needed', true); return; }
+  try {
+    const r = await api('/api/campaign/' + id, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({purpose, entries})});
+    toast(r.queued + ' calls queued'); closeModal('mCampaign'); show('calls');
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ---------------- integrations ---------------- */
+let INTEG_CFG = null;
+async function initIntegrations() {
+  if (!CLIENTS.length) { const d = await api('/api/clients'); CLIENTS = d.clients; ACTIVE = d.active; }
+  const sel = document.getElementById('integAgent');
+  sel.innerHTML = CLIENTS.map(c => `<option value="${c.client_id}">${esc(c.business_name)}</option>`).join('');
+  sel.value = ACTIVE || (CLIENTS[0] && CLIENTS[0].client_id) || '';
+  renderIntegrations();
+}
+async function renderIntegrations() {
+  const id = document.getElementById('integAgent').value;
+  if (!id) return;
+  INTEG_CFG = await api('/api/clients/' + id);
+  const shopOn = !!(INTEG_CFG.shopify && INTEG_CFG.shopify.access_token);
+  const tiles = [
+    ['shopify','🛍️','Shopify','Order & COD calls from your Shopify store', shopOn ? 'connected' : 'available'],
+    ['woo','🧩','WooCommerce','Order calls from your WordPress store', 'available'],
+    ['webhook','🔗','Universal webhook','Trigger a call from ANY system with one HTTP request', 'available'],
+    ['sheets','📋','Google Sheets / Zapier','Queue calls from a sheet row or any Zap', 'available'],
+    ['whatsapp','💬','WhatsApp follow-up','Send links & summaries after the call', 'soon'],
+    ['telephony','📞','Phone number (Exotel)','Real inbound/outbound calls on a phone line', 'soon'],
+  ];
+  document.getElementById('integGrid').innerHTML = tiles.map(t => `
+    <div class="agent" style="cursor:${t[4] === 'soon' ? 'default' : 'pointer'}"
+      ${t[4] !== 'soon' ? `onclick="integDetail('${t[0]}')"` : ''}>
+      <div class="top"><div class="avatar">${t[1]}</div>
+        <div><h3>${t[2]}</h3><div class="who">${t[3]}</div></div></div>
+      <div class="chips">${
+        t[4] === 'connected' ? '<span class="chip ok">● connected</span>' :
+        t[4] === 'soon' ? '<span class="chip">coming soon</span>' :
+        '<span class="chip acc">set up →</span>'}</div>
+    </div>`).join('');
+  document.getElementById('integDetail').style.display = 'none';
+}
+function integDetail(kind) {
+  const id = document.getElementById('integAgent').value;
+  const base = location.origin;
+  const el = document.getElementById('integDetail');
+  el.style.display = 'block';
+  const s = (INTEG_CFG && INTEG_CFG.shopify) || {};
+  if (kind === 'shopify') el.innerHTML = `
+    <b>Shopify — ${esc(id)}</b>
+    <p class="hint">1. In Shopify admin: Settings → Apps → Develop apps → create an app with
+      <b>read_orders, write_orders</b> scope → install → copy the Admin API access token.<br>
+      2. Settings → Notifications → Webhooks → add webhook, event <b>Order creation</b>, URL below.</p>
+    <div class="row2">
+      <div><label>Store domain</label><input id="ig_domain" value="${esc(s.domain || '')}" placeholder="yourstore.myshopify.com"></div>
+      <div><label>Admin API token</label><input id="ig_token" type="password" value="${esc(s.access_token || '')}" placeholder="shpat_..."></div>
+    </div>
+    <label>Webhook secret (optional)</label><input id="ig_secret" type="password" value="${esc(s.webhook_secret || '')}">
+    <label>Webhook URL</label>
+    <div class="webhook"><span style="flex:1">${base}/webhooks/shopify/${esc(id)}</span>
+      <button class="btn ghost small" onclick="copyText('${base}/webhooks/shopify/${esc(id)}')">Copy</button></div>
+    <div class="btns">
+      <button class="btn" onclick="saveIntegration()">Save</button>
+      <button class="btn ghost" onclick="testShopify()">Test connection</button>
+    </div><div class="msg" id="igMsg"></div>`;
+  if (kind === 'woo') el.innerHTML = `
+    <b>WooCommerce — ${esc(id)}</b>
+    <p class="hint">WordPress admin → WooCommerce → Settings → Advanced → Webhooks → Add:
+      topic <b>Order created</b>, delivery URL below. Trigger rules (COD / pending) apply the same.</p>
+    <div class="webhook"><span style="flex:1">${base}/webhooks/woocommerce/${esc(id)}</span>
+      <button class="btn ghost small" onclick="copyText('${base}/webhooks/woocommerce/${esc(id)}')">Copy</button></div>`;
+  if (kind === 'webhook') el.innerHTML = `
+    <b>Universal webhook — ${esc(id)}</b>
+    <p class="hint">Any system that can send an HTTP request can queue a call — your CRM, your
+      website form, a cron job. One request = one queued call.</p>
+    <div class="webhook"><span style="flex:1">POST ${base}/webhooks/generic/${esc(id)}</span>
+      <button class="btn ghost small" onclick="copyText('${base}/webhooks/generic/${esc(id)}')">Copy</button></div>
+    <label>Example</label>
+    <div class="webhook" style="white-space:pre">curl -X POST ${base}/webhooks/generic/${esc(id)} \\
+  -H "Content-Type: application/json" \\
+  -d '{"name":"Rahul","phone":"+9198...","purpose":"Remind about tomorrow 5pm appointment"}'</div>`;
+  if (kind === 'sheets') el.innerHTML = `
+    <b>Google Sheets / Zapier / Make — ${esc(id)}</b>
+    <p class="hint"><b>Zapier / Make:</b> use a "Webhooks → POST" action with the universal webhook URL
+      and fields name, phone, purpose.<br>
+      <b>Google Sheets:</b> Extensions → Apps Script → send each new row with UrlFetchApp:</p>
+    <div class="webhook" style="white-space:pre">UrlFetchApp.fetch("${base}/webhooks/generic/${esc(id)}", {
+  method: "post", contentType: "application/json",
+  payload: JSON.stringify({name: row[0], phone: row[1], purpose: row[2]})
+});</div>`;
+  el.scrollIntoView({behavior:'smooth'});
+}
+function copyText(t) { navigator.clipboard.writeText(t); toast('Copied'); }
+async function saveIntegration() {
+  const id = document.getElementById('integAgent').value;
+  INTEG_CFG.shopify = {
+    domain: document.getElementById('ig_domain').value.trim(),
+    access_token: document.getElementById('ig_token').value.trim(),
+    webhook_secret: document.getElementById('ig_secret').value.trim(),
+  };
+  await api('/api/clients/' + id, {method:'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify(INTEG_CFG)});
+  toast('Integration saved'); renderIntegrations();
+}
+async function testShopify() {
+  const id = document.getElementById('integAgent').value;
+  const m = document.getElementById('igMsg');
+  m.className = 'msg'; m.textContent = 'Testing…';
+  try {
+    await saveIntegration();
+    const r = await api('/api/shopify/test/' + id);
+    m.className = 'msg ok'; m.textContent = `Connected to "${r.shop}" ✓`;
+  } catch(e) { m.className = 'msg err'; m.textContent = e.message; }
 }
 function showTranscript(i) {
   const c = window._HIST[i];
