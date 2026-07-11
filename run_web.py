@@ -18,7 +18,7 @@ load_dotenv(override=True)
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 from starlette.responses import Response  # noqa: E402
 
-from pipecat.runner.types import RunnerArguments  # noqa: E402
+from pipecat.runner.types import RunnerArguments, WebSocketRunnerArguments  # noqa: E402
 from pipecat.runner.utils import create_transport  # noqa: E402
 from pipecat.serializers.protobuf import ProtobufFrameSerializer  # noqa: E402
 from pipecat.transports.base_transport import TransportParams  # noqa: E402
@@ -84,16 +84,51 @@ transport_params = {
         add_wav_header=False,
         serializer=ProtobufFrameSerializer(),
     ),
+    # Real phone calls (Twilio media streams). The serializer is set
+    # automatically by create_transport from the parsed handshake.
+    "twilio": lambda: FastAPIWebsocketParams(
+        audio_in_enabled=True,
+        audio_out_enabled=True,
+    ),
+    "exotel": lambda: FastAPIWebsocketParams(
+        audio_in_enabled=True,
+        audio_out_enabled=True,
+    ),
 }
 
 
 async def bot(runner_args: RunnerArguments):
-    """Called by the Pipecat runner for every browser connection."""
+    """Called by the Pipecat runner for every browser or phone connection."""
     transport = await create_transport(runner_args, transport_params)
 
-    # If an order call was "taken" in /admin, this connection becomes that
-    # outbound call (demo mode: the browser user plays the customer). The task
-    # is consumed so the following call is a normal inbound session again.
+    # Real phone call (Twilio media stream): the TwiML we sent when dialing
+    # carries the task_id, so this call IS that outbound order/campaign call.
+    if isinstance(runner_args, WebSocketRunnerArguments):
+        call_data = getattr(runner_args, "call_data", None)
+        body = (call_data.get("body") if isinstance(call_data, dict)
+                else getattr(call_data, "body", None)) or {}
+        task_id = body.get("task_id")
+        if task_id:
+            from src.store import get_task
+
+            call_task = get_task(task_id)
+            if call_task:
+                client_cfg = load_client(call_task["client_id"])
+                await run_bot(
+                    transport, client_cfg, handle_sigint=False,
+                    call_task=call_task, telephony=True,
+                )
+                return
+        # Inbound phone call with no task: normal receptionist, phone audio.
+        if getattr(runner_args, "transport_type", "websocket") != "websocket":
+            client_cfg = load_client(
+                get_active_client_id(default=os.environ.get("CLIENT_ID", "hotel_sunrise"))
+            )
+            await run_bot(transport, client_cfg, handle_sigint=False, telephony=True)
+            return
+
+    # If an order call was "taken" in /admin, this browser connection becomes
+    # that outbound call (demo mode: the browser user plays the customer).
     call_task = get_active_task()
     if call_task and call_task.get("status") == "queued":
         set_active_task(None)

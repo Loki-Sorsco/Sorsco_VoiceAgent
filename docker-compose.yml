@@ -18,6 +18,11 @@ services:
       - DAILY_API_KEY=${DAILY_API_KEY}
       - CLIENT_ID=${CLIENT_ID:-hotel_sunrise}
       - LLM_PROVIDER=${LLM_PROVIDER:-groq}
+      # Real phone calls (Twilio trial works) — see /admin -> Integrations -> Phone
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
+      - PUBLIC_HOST=${PUBLIC_HOST}
     expose:
       - "7860"
     networks:

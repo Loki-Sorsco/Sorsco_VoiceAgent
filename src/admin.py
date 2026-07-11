@@ -303,6 +303,100 @@ def register_admin(app: FastAPI):
     def live_events(since: int = 0):
         return {"events": read_events(since), "count": count_events()}
 
+    # ------------------------------------------------------- real telephony
+
+    @app.get("/api/telephony/status")
+    def get_telephony_status():
+        from src.telephony import telephony_status
+
+        return telephony_status()
+
+    @app.post("/api/queue/{task_id}/dial")
+    async def dial_task(task_id: str):
+        from src.telephony import place_call
+
+        task = get_task(task_id)
+        if not task:
+            raise HTTPException(404, "No such task")
+        try:
+            result = await place_call(task)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        update_task(task_id, status="dialing")
+        return {"dialing": task_id, "call_sid": result["call_sid"]}
+
+    @app.post("/api/queue/dial-all")
+    async def dial_all():
+        from src.telephony import place_call
+
+        dialed, errors = [], []
+        for task in list_tasks():
+            if task["status"] != "queued":
+                continue
+            try:
+                await place_call(task)
+                update_task(task["task_id"], status="dialing")
+                dialed.append(task["task_id"])
+            except ValueError as e:
+                errors.append(f"{task.get('customer_name','?')}: {e}")
+        return {"dialed": len(dialed), "errors": errors[:5]}
+
+    @app.post("/api/shopify/pull/{client_id}")
+    async def shopify_pull(client_id: str, body: dict):
+        """Fetch orders from the connected Shopify store and queue calls.
+
+        body.kind: "pending" (payment pending) or "tag" (body.tag matches order tags)
+        """
+        cfg = _load_client(client_id)
+        shop = cfg.get("shopify") or {}
+        domain, token = shop.get("domain"), shop.get("access_token")
+        if not (domain and token):
+            raise HTTPException(400, "Connect the Shopify store first (domain + token)")
+
+        kind = body.get("kind", "pending")
+        tag = (body.get("tag") or "").strip().lower()
+        params = "status=any&limit=50"
+        if kind == "pending":
+            params += "&financial_status=pending"
+
+        import aiohttp
+
+        from src.triggers import FLOW_DESCRIPTIONS, normalize_shopify_order
+        from src.store import add_task, save_order
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"https://{domain}/admin/api/2024-10/orders.json?{params}",
+                    headers={"X-Shopify-Access-Token": token},
+                    timeout=aiohttp.ClientTimeout(total=15),
+                ) as r:
+                    if r.status != 200:
+                        raise HTTPException(400, f"Shopify answered HTTP {r.status}")
+                    orders = (await r.json()).get("orders", [])
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(400, f"Could not reach the store: {e}")
+
+        queued = 0
+        existing = {t["order_id"] for t in list_tasks() if t["status"] in ("queued", "dialing")}
+        for o in orders:
+            if kind == "tag" and tag not in (o.get("tags", "") or "").lower():
+                continue
+            order = normalize_shopify_order(o, client_id)
+            if str(order["order_id"]) in existing:
+                continue
+            save_order(order)
+            reason = (
+                FLOW_DESCRIPTIONS["pending_payment"]
+                if kind == "pending"
+                else f"Follow up about their order (tagged '{tag}')"
+            )
+            add_task(client_id, order, reason, "pending_payment" if kind == "pending" else "campaign")
+            queued += 1
+        return {"queued": queued, "scanned": len(orders)}
+
     # ------------------------------------------------------ history & stats
 
     @app.get("/api/history")

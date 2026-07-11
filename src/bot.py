@@ -88,11 +88,13 @@ async def run_bot(
     client_cfg: dict,
     handle_sigint: bool = True,
     call_task: dict | None = None,
+    telephony: bool = False,
 ):
     """Run one call session on the given transport.
 
     call_task: an outbound order-call task from the call queue (COD confirm,
     pending payment, abandoned cart). None = normal inbound receptionist call.
+    telephony: True for real phone lines (8 kHz audio).
     """
     stt = SarvamSTTService(api_key=os.environ["SARVAM_API_KEY"])
 
@@ -165,7 +167,14 @@ async def run_bot(
         ]
     )
 
-    worker = PipelineWorker(pipeline, params=PipelineParams(enable_metrics=True))
+    pipeline_params = (
+        PipelineParams(
+            enable_metrics=True, audio_in_sample_rate=8000, audio_out_sample_rate=8000
+        )
+        if telephony
+        else PipelineParams(enable_metrics=True)
+    )
+    worker = PipelineWorker(pipeline, params=pipeline_params)
 
     # End the session the moment the caller hangs up / closes the page —
     # otherwise the pipeline lingers until idle-timeout and history/outcomes

@@ -135,6 +135,7 @@ ADMIN_PAGE = r"""<!doctype html>
   /* ---------- calls ---------- */
   .pill { font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:99px; white-space:nowrap; }
   .pill.queued { background:var(--warn-soft); color:var(--warn); }
+  .pill.dialing { background:var(--accent-soft); color:var(--accent); }
   .pill.in_progress { background:var(--accent-soft); color:var(--accent); }
   .pill.done,.pill.confirmed { background:var(--good-soft); color:var(--good); }
   .pill.cancelled,.pill.dismissed { background:var(--bad-soft); color:var(--bad); }
@@ -339,6 +340,7 @@ ADMIN_PAGE = r"""<!doctype html>
       <div class="grow"><h1>Calls</h1><div class="sub">Queued order calls and full history with transcripts.</div></div>
       <button class="btn ghost" onclick="simulate('cod')">＋ Simulate COD order</button>
       <button class="btn ghost" onclick="simulate('pending')">＋ Simulate pending payment</button>
+      <button class="btn ghost" id="dialAllBtn" style="display:none" onclick="dialAll()">📞 Dial all queued</button>
       <button class="btn" onclick="openModal('mCampaign')">📢 New campaign</button>
     </div>
     <div class="card" style="margin-bottom:16px">
@@ -707,12 +709,34 @@ function queueRow(t, compact) {
     <td><span class="pill ${t.status}">${t.status}</span>
         ${t.outcome ? '<br><span class="hint">' + esc(t.outcome) + '</span>' : ''}</td>
     <td style="white-space:nowrap">${t.status === 'queued'
-      ? `<button class="btn small" onclick="takeAndTest('${t.task_id}')">▶ Take call</button>
+      ? `${TEL.configured ? `<button class="btn small" onclick="dialTask('${t.task_id}')">📞 Dial</button> ` : ''}
+         <button class="btn ${TEL.configured ? 'ghost ' : ''}small" onclick="takeAndTest('${t.task_id}')">▶ Take call</button>
          <button class="btn ghost small" onclick="dismissTask('${t.task_id}')">✕</button>`
       : (t.status === 'done' || t.status === 'callback')
       ? `<button class="btn ghost small" title="Queue this call again"
            onclick="requeueTask('${t.task_id}')">↺ Call again</button>` : ''}</td>
   </tr>`;
+}
+let TEL = {configured:false};
+async function loadTelephony() {
+  try {
+    TEL = await api('/api/telephony/status');
+    document.getElementById('dialAllBtn').style.display = TEL.configured ? '' : 'none';
+  } catch(e) {}
+}
+async function dialTask(id) {
+  try {
+    const r = await api('/api/queue/' + id + '/dial', {method:'POST'});
+    toast('Dialing… the customer\'s phone is ringing'); pollQueue();
+  } catch(e) { toast(e.message, true); }
+}
+async function dialAll() {
+  try {
+    const r = await api('/api/queue/dial-all', {method:'POST'});
+    toast(r.dialed + ' calls dialing' + (r.errors.length ? ` — ${r.errors.length} failed` : ''));
+    if (r.errors.length) console.warn(r.errors);
+    pollQueue();
+  } catch(e) { toast(e.message, true); }
 }
 async function requeueTask(id) {
   await api('/api/queue/' + id + '/requeue', {method:'POST'});
@@ -826,7 +850,8 @@ async function renderIntegrations() {
     ['webhook','🔗','Universal webhook','Trigger a call from ANY system with one HTTP request', 'available'],
     ['sheets','📋','Google Sheets / Zapier','Queue calls from a sheet row or any Zap', 'available'],
     ['whatsapp','💬','WhatsApp follow-up','Send links & summaries after the call', 'soon'],
-    ['telephony','📞','Phone number (Exotel)','Real inbound/outbound calls on a phone line', 'soon'],
+    ['telephony','📞','Phone number (Twilio)','Real calls to actual phones — free trial works',
+      TEL.configured ? 'connected' : 'available'],
   ];
   document.getElementById('integGrid').innerHTML = tiles.map(t => `
     <div class="agent" style="cursor:${t[4] === 'soon' ? 'default' : 'pointer'}"
@@ -862,7 +887,38 @@ function integDetail(kind) {
     <div class="btns">
       <button class="btn" onclick="saveIntegration()">Save</button>
       <button class="btn ghost" onclick="testShopify()">Test connection</button>
-    </div><div class="msg" id="igMsg"></div>`;
+    </div><div class="msg" id="igMsg"></div>
+    <label style="margin-top:18px">Pull existing orders & queue calls</label>
+    <p class="hint" style="margin-top:0">Don't wait for new orders — scan the store now and queue
+      calls for everyone matching:</p>
+    <div class="btns" style="margin-top:0">
+      <button class="btn ghost" onclick="shopifyPull('pending')">💳 All payment-pending orders</button>
+      <span style="display:flex;gap:6px;align-items:center">
+        <input id="ig_tag" placeholder="or a tag, e.g. call-me" style="width:170px">
+        <button class="btn ghost" onclick="shopifyPull('tag')">🏷 Pull by tag</button>
+      </span>
+    </div>`;
+  if (kind === 'telephony') el.innerHTML = `
+    <b>Phone number — real calls (Twilio free trial works)</b>
+    <p class="hint">
+      1. Sign up free at <a href="https://www.twilio.com/try-twilio" target="_blank"
+         style="color:var(--accent)">twilio.com/try-twilio</a> — no card, you get ~$15 trial credit
+         and a phone number.<br>
+      2. In the Twilio console, copy your <b>Account SID</b> and <b>Auth Token</b>
+         and note your <b>Twilio phone number</b>.<br>
+      3. <b>Verified Caller IDs</b> → add & OTP-verify every number you want to test-call
+         (trial accounts can only call verified numbers — your own phone, your team).<br>
+      4. Add these environment variables where the server runs (Dokploy → Environment → Deploy):</p>
+    <div class="webhook" style="white-space:pre">TWILIO_ACCOUNT_SID=AC................
+TWILIO_AUTH_TOKEN=................
+TWILIO_FROM_NUMBER=+1..........
+PUBLIC_HOST=${location.host}</div>
+    <p class="hint">After redeploy this tile turns <b>connected</b>, and every queued call shows a
+      <b>📞 Dial</b> button — the customer's actual phone rings and your agent talks to them.
+      Trial calls play a short "trial account" notice first; upgrading removes it.</p>
+    <div class="msg ${TEL.configured ? 'ok' : ''}">${TEL.configured
+      ? 'Configured ✓ — calling from ' + esc(TEL.from_number)
+      : 'Not configured yet — missing: ' + (TEL.missing || []).join(', ')}</div>`;
   if (kind === 'woo') el.innerHTML = `
     <b>WooCommerce — ${esc(id)}</b>
     <p class="hint">WordPress admin → WooCommerce → Settings → Advanced → Webhooks → Add:
@@ -901,6 +957,17 @@ async function saveIntegration() {
   await api('/api/clients/' + id, {method:'POST',
     headers:{'Content-Type':'application/json'}, body: JSON.stringify(INTEG_CFG)});
   toast('Integration saved'); renderIntegrations();
+}
+async function shopifyPull(kind) {
+  const id = document.getElementById('integAgent').value;
+  const tag = kind === 'tag' ? document.getElementById('ig_tag').value.trim() : '';
+  if (kind === 'tag' && !tag) { toast('Enter a tag first', true); return; }
+  try {
+    const r = await api('/api/shopify/pull/' + id, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({kind, tag})});
+    toast(`${r.queued} calls queued (${r.scanned} orders scanned)`);
+    if (r.queued) show('calls');
+  } catch(e) { toast(e.message, true); }
 }
 async function testShopify() {
   const id = document.getElementById('integAgent').value;
@@ -984,7 +1051,7 @@ function closeTest() {
 }
 
 /* ---------------- boot ---------------- */
-loadStats(); loadAgents(); pollQueue();
+loadStats(); loadAgents(); pollQueue(); loadTelephony();
 setInterval(() => {
   if (document.getElementById('v-overview').classList.contains('on')
    || document.getElementById('v-calls').classList.contains('on')) pollQueue();
