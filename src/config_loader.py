@@ -11,6 +11,25 @@ from pathlib import Path
 
 CLIENTS_DIR = Path(__file__).resolve().parent.parent / "clients"
 
+FEMALE_VOICES = {
+    "priya", "ritu", "neha", "pooja", "simran", "kavya", "ishita", "shreya",
+    "roopa", "amelia", "sophia", "anushka", "manisha", "vidya", "arya",
+}
+
+
+def voice_gender_rules(client_cfg: dict) -> str:
+    voice = client_cfg.get("tts_voice", "priya").lower()
+    if voice in FEMALE_VOICES:
+        return (
+            "YOU ARE FEMALE. Always use feminine grammar for yourself in every "
+            "language — Hindi: 'bol rahi hoon', 'kar sakti hoon', 'main aapki "
+            "sahayata kar sakti hoon' (NEVER 'bol raha hoon' / 'kar sakta hoon')."
+        )
+    return (
+        "YOU ARE MALE. Always use masculine grammar for yourself in every "
+        "language — Hindi: 'bol raha hoon', 'kar sakta hoon'."
+    )
+
 
 def load_client(client_id: str) -> dict:
     path = CLIENTS_DIR / f"{client_id}.json"
@@ -28,6 +47,8 @@ def build_system_prompt(client: dict) -> str:
     languages = ", ".join(client["supported_languages"])
 
     return f"""{client['persona']}
+
+{voice_gender_rules(client)}
 
 You are talking on a PHONE CALL. Your replies are converted to speech, so:
 - Keep every reply SHORT: one or two sentences, then let the caller speak.

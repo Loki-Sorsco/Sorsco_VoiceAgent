@@ -401,7 +401,63 @@ def register_admin(app: FastAPI):
 
     @app.get("/api/history")
     def history():
-        return {"calls": read_history(100)}
+        from src.analysis import analyze_call
+        from src.call_events import read_history_raw, rewrite_history
+
+        records = read_history_raw()
+        # Lazy backfill: analyze a few unanalyzed calls per request.
+        todo = [r for r in records if "analysis" not in r][:5]
+        if todo:
+            for r in todo:
+                r["analysis"] = analyze_call(r)
+            rewrite_history(records)
+        return {"calls": records[-100:][::-1]}
+
+    @app.get("/api/history/export")
+    def history_export():
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+
+        from src.call_events import read_history_raw
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Calls"
+        headers = [
+            "Started", "Agent", "Business", "Call type", "Outcome", "Duration (s)",
+            "Turns", "Caller language", "Category", "Issue faced", "Summary",
+            "Resolution", "Transcript",
+        ]
+        ws.append(headers)
+        for c in ws[1]:
+            c.font = Font(bold=True)
+        for r in read_history_raw():
+            a = r.get("analysis") or {}
+            transcript = " | ".join(
+                f"{'C' if e.get('type') == 'user' else 'A'}: {e.get('text', '')}"
+                for e in (r.get("transcript") or [])
+                if e.get("type") in ("user", "assistant")
+            )
+            ws.append([
+                r.get("started", ""), r.get("agent", ""), r.get("client", ""),
+                (r.get("kind") or "").replace("_", " "), r.get("outcome") or "",
+                r.get("duration_s", 0), r.get("turns", 0), a.get("language", ""),
+                a.get("category", ""), a.get("issue", ""), a.get("summary", ""),
+                a.get("resolution", ""), transcript[:3000],
+            ])
+        widths = [10, 12, 22, 16, 14, 12, 8, 14, 18, 40, 50, 16, 80]
+        for i, w in enumerate(widths, 1):
+            ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
+
+        import io
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": 'attachment; filename="call-report.xlsx"'},
+        )
 
     @app.get("/api/stats")
     def stats():

@@ -59,6 +59,29 @@ def append_history(record: dict):
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+def rewrite_history(records: list[dict]):
+    """Replace the whole history file (records in chronological order)."""
+    HISTORY_FILE.parent.mkdir(exist_ok=True)
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        for r in records:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+
+def read_history_raw() -> list[dict]:
+    """All history records, oldest first."""
+    if not HISTORY_FILE.exists():
+        return []
+    records = []
+    with open(HISTORY_FILE, encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    return records
+
+
 def read_history(limit: int = 100) -> list[dict]:
     if not HISTORY_FILE.exists():
         return []

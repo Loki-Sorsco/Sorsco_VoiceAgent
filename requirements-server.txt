@@ -6,3 +6,4 @@ loguru
 fastapi
 uvicorn
 openai
+openpyxl

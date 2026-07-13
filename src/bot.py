@@ -71,6 +71,23 @@ TOOL_SCHEMAS = ToolsSchema(
 )
 
 
+def _stt_language(client_cfg: dict):
+    """Client's main language as a pipecat Language, or None for auto-detect."""
+    from pipecat.transcriptions.language import Language
+
+    mode = client_cfg.get("stt_language", "locked")
+    if mode == "auto":
+        return None
+    code = client_cfg.get("default_language", "hi-IN")
+    mapping = {
+        "hi-IN": Language.HI, "en-IN": Language.EN_IN, "ta-IN": Language.TA,
+        "te-IN": Language.TE, "bn-IN": Language.BN, "mr-IN": Language.MR,
+        "kn-IN": Language.KN, "gu-IN": Language.GU, "pa-IN": Language.PA,
+        "ml-IN": Language.ML,
+    }
+    return mapping.get(code)
+
+
 async def _handle_check_availability(params: FunctionCallParams):
     result = check_availability(**params.arguments)
     log_event("tool", name="check_availability", args=params.arguments, result=result)
@@ -96,7 +113,17 @@ async def run_bot(
     pending payment, abandoned cart). None = normal inbound receptionist call.
     telephony: True for real phone lines (8 kHz audio).
     """
-    stt = SarvamSTTService(api_key=os.environ["SARVAM_API_KEY"])
+    stt = SarvamSTTService(
+        api_key=os.environ["SARVAM_API_KEY"],
+        settings=SarvamSTTService.Settings(
+            model="saaras:v3",
+            # Lock transcription to the agent's language: auto-detect on 8kHz
+            # phone audio misfires into wrong scripts (Hindi heard as Odia).
+            # Set "stt_language": "auto" in the client JSON to re-enable
+            # auto-detection for genuinely multilingual lines.
+            language=_stt_language(client_cfg),
+        ),
+    )
 
     tts = SarvamTTSService(
         api_key=os.environ["SARVAM_API_KEY"],
@@ -230,21 +257,31 @@ async def run_bot(
             outcome = (latest or {}).get("outcome")
         try:
             events = read_events()
-            append_history(
-                {
-                    "client_id": client_cfg["client_id"],
-                    "client": client_cfg["business_name"],
-                    "agent": client_cfg["agent_name"],
-                    "kind": call_task["flow"] if call_task else "inbound",
-                    "order_id": call_task["order_id"] if call_task else None,
-                    "outcome": outcome,
-                    "started": events[0]["time"] if events else "",
-                    "duration_s": int(_time.time() - started),
-                    "turns": sum(1 for e in events if e["type"] in ("user", "assistant")),
-                    "transcript": [
-                        e for e in events if e["type"] in ("user", "assistant", "tool")
-                    ],
-                }
-            )
+            record = {
+                "client_id": client_cfg["client_id"],
+                "client": client_cfg["business_name"],
+                "agent": client_cfg["agent_name"],
+                "kind": call_task["flow"] if call_task else "inbound",
+                "order_id": call_task["order_id"] if call_task else None,
+                "outcome": outcome,
+                "started": events[0]["time"] if events else "",
+                "duration_s": int(_time.time() - started),
+                "turns": sum(1 for e in events if e["type"] in ("user", "assistant")),
+                "transcript": [
+                    e for e in events if e["type"] in ("user", "assistant", "tool")
+                ],
+            }
+            # Auto-analysis (summary/issue/category) — off the event loop.
+            try:
+                import asyncio
+
+                from src.analysis import analyze_call
+
+                record["analysis"] = await asyncio.wait_for(
+                    asyncio.to_thread(analyze_call, record), timeout=30
+                )
+            except Exception as e:
+                logger.warning(f"Post-call analysis skipped: {e}")
+            append_history(record)
         except Exception as e:
             logger.warning(f"Could not write call history: {e}")

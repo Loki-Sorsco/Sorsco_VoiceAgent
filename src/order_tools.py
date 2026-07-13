@@ -162,7 +162,11 @@ Use the business knowledge from your persona/knowledge to answer questions."""
 - Payment status: {order.get('financial_status') or 'unknown'}
 - Delivery address: {order.get('address') or 'not on file'}"""
 
+    from src.config_loader import voice_gender_rules
+
     return f"""{client_cfg['persona']}
+
+{voice_gender_rules(client_cfg)}
 
 You are making an OUTBOUND phone call to a customer of {client_cfg['business_name']}.
 

@@ -354,10 +354,10 @@ ADMIN_PAGE = r"""<!doctype html>
         <div class="grow"><b>History</b></div>
         <input id="histSearch" placeholder="Search transcripts…" style="width:220px"
           oninput="renderHistory()">
-        <button class="btn ghost small" onclick="exportCsv()">⬇ Export CSV</button>
+        <a class="btn ghost small" href="/api/history/export" style="text-decoration:none">⬇ Export Excel</a>
       </div>
       <div class="tablewrap"><table id="histTable">
-        <thead><tr><th>Started</th><th>Agent</th><th>Type</th><th>Outcome</th><th>Length</th><th></th></tr></thead>
+        <thead><tr><th>Started</th><th>Agent</th><th>Type</th><th>Category</th><th>Issue</th><th>Outcome</th><th>Length</th><th></th></tr></thead>
         <tbody></tbody></table></div>
     </div>
   </div>
@@ -771,25 +771,21 @@ function renderHistory() {
   const q = (document.getElementById('histSearch').value || '').toLowerCase();
   const calls = (window._HIST || []).filter(c => !q ||
     JSON.stringify(c).toLowerCase().includes(q));
-  document.querySelector('#histTable tbody').innerHTML = calls.map(c => `
+  document.querySelector('#histTable tbody').innerHTML = calls.map(c => {
+    const a = c.analysis || {};
+    return `
       <tr>
         <td>${esc(c.started || '')}</td>
         <td>${esc(c.agent)} <span class="hint">· ${esc(c.client)}</span></td>
         <td><span class="pill ${c.kind === 'inbound' ? 'inbound' : 'in_progress'}">${c.kind.replace(/_/g,' ')}</span></td>
+        <td>${a.category ? `<span class="chip acc">${a.category.replace(/_/g,' ')}</span>` : '<span class="hint">…</span>'}</td>
+        <td style="max-width:260px">${esc(a.issue && a.issue !== 'none' ? a.issue : (a.summary || ''))}</td>
         <td>${c.outcome ? `<span class="pill ${c.outcome}">${c.outcome}</span>` : '—'}</td>
         <td>${c.duration_s}s · ${c.turns} turns</td>
         <td><button class="btn ghost small"
           onclick="showTranscript(${window._HIST.indexOf(c)})">View</button></td>
-      </tr>`).join('') || '<tr><td colspan="6" class="hint">No calls yet.</td></tr>';
-}
-function exportCsv() {
-  const rows = [['started','agent','client','type','outcome','duration_s','turns']];
-  (window._HIST || []).forEach(c => rows.push(
-    [c.started, c.agent, c.client, c.kind, c.outcome || '', c.duration_s, c.turns]));
-  const csv = rows.map(r => r.map(v => '"' + String(v ?? '').replace(/"/g,'""') + '"').join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
-  a.download = 'call-history.csv'; a.click();
+      </tr>`;
+  }).join('') || '<tr><td colspan="8" class="hint">No calls yet.</td></tr>';
 }
 
 /* ---------------- chat test ---------------- */
@@ -981,12 +977,18 @@ async function testShopify() {
 }
 function showTranscript(i) {
   const c = window._HIST[i];
+  const a = c.analysis || {};
   document.getElementById('trTitle').textContent =
     `${c.agent} · ${c.kind.replace(/_/g,' ')} · ${c.started}`;
-  document.getElementById('trBody').innerHTML = (c.transcript || []).map(e => {
+  const head = a.summary ? `<div class="card" style="margin-bottom:14px;padding:12px 16px">
+    <b>${esc(a.summary)}</b><br>
+    <span class="hint">Issue: ${esc(a.issue || '—')} · Category:
+      <span class="chip acc">${(a.category || '—').replace(/_/g,' ')}</span> ·
+      ${esc(a.resolution || '')} · Caller spoke ${esc(a.language || '?')}</span></div>` : '';
+  document.getElementById('trBody').innerHTML = head + ((c.transcript || []).map(e => {
     if (e.type === 'tool') return `<div class="bub tool">⚙ ${esc(e.name)} ${esc(JSON.stringify(e.args || {}))}</div>`;
     return `<div class="bub ${e.type}"><div class="w">${e.type === 'user' ? 'Caller' : 'Agent'} · ${e.time}</div>${esc(e.text)}</div>`;
-  }).join('') || '<span class="hint">Empty transcript.</span>';
+  }).join('') || '<span class="hint">Empty transcript.</span>');
   document.getElementById('mTranscript').classList.add('on');
 }
 
