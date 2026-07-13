@@ -1,0 +1,9 @@
+
+🚀 Bot ready!
+   → Open: http://0.0.0.0:7860
+   → Enabled transports: webrtc, telephony, websocket
+   → Disabled transports: daily (install pipecat-ai[daily])
+   → Allowed origins: all (no restriction)
+
+Looking for dist directory at: C:\Users\dell\Downloads\claude_test\.venv\Lib\site-packages\pipecat_ai_prebuilt\client\dist
+INFO:     127.0.0.1:55296 - "GET /admin HTTP/1.1" 200 OK

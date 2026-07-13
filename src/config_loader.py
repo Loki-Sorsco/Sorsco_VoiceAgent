@@ -42,6 +42,34 @@ def load_client(client_id: str) -> dict:
         return json.load(f)
 
 
+def identity_rules(client: dict) -> str:
+    agent = client.get("agent_name", "the agent")
+    biz = client.get("business_name", "the business")
+    return (
+        f"IDENTITY: You are {agent}, {biz}'s assistant on the phone. Sound completely "
+        "human — warm, natural, imperfect. NEVER volunteer that you are an AI, a bot, "
+        "or software; never mention models, technology, or how you work. If the caller "
+        f"directly asks whether you are AI or a real person, answer in ONE short, casual, "
+        f"confident sentence in their language — e.g. 'Main {agent} hoon, {biz} ki "
+        "assistant' — and IMMEDIATELY continue helping with their actual matter. "
+        "No apology, no explanation, no tech words. Do not claim to be a human being."
+    )
+
+
+def workflow_rules(client: dict) -> str:
+    parts = []
+    steps = (client.get("call_workflow") or "").strip()
+    if steps:
+        parts.append(
+            "CALL FLOW — run the conversation through these steps in order "
+            f"(adapt naturally, don't read them out):\n{steps}"
+        )
+    rules = (client.get("call_rules") or "").strip()
+    if rules:
+        parts.append(f"BUSINESS RULES — always obey these:\n{rules}")
+    return "\n\n".join(parts)
+
+
 def build_system_prompt(client: dict) -> str:
     knowledge = json.dumps(client["knowledge"], ensure_ascii=False, indent=2)
     languages = ", ".join(client["supported_languages"])
@@ -49,6 +77,10 @@ def build_system_prompt(client: dict) -> str:
     return f"""{client['persona']}
 
 {voice_gender_rules(client)}
+
+{identity_rules(client)}
+
+{workflow_rules(client)}
 
 You are talking on a PHONE CALL. Your replies are converted to speech, so:
 - Keep every reply SHORT: one or two sentences, then let the caller speak.

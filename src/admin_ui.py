@@ -232,6 +232,7 @@ ADMIN_PAGE = r"""<!doctype html>
     <div class="tabs">
       <button class="on" data-t="profile">Profile</button>
       <button data-t="knowledge">Business info</button>
+      <button data-t="workflow">Call flow</button>
       <button data-t="store">Store & triggers</button>
       <button data-t="chat">Chat test</button>
     </div>
@@ -265,6 +266,31 @@ ADMIN_PAGE = r"""<!doctype html>
       <label>Personality <span style="text-transform:none">(who is the agent?)</span></label>
       <textarea id="f_persona" rows="3"
         placeholder="You are Priya, a warm and helpful front-desk agent at Hotel Sunrise in Jaipur..."></textarea>
+      <label>Speaking speed <span id="paceVal" style="text-transform:none"></span></label>
+      <input type="range" id="f_pace" min="0.8" max="1.3" step="0.05" value="1"
+        oninput="document.getElementById('paceVal').textContent = '· ' + this.value + 'x'">
+      <div class="hint">1.0 = natural human pace. Slightly lower for elderly customers, higher for quick confirmations.</div>
+    </div></div>
+
+    <div class="tabpane" id="t-workflow"><div class="card" style="max-width:720px">
+      <p class="hint" style="margin-top:0">Shape how the agent runs every call — it follows your
+        steps in order and never breaks your rules. Plain language, one per line.</p>
+      <label>Call steps (in order)</label>
+      <textarea id="f_workflow" rows="7" placeholder="1. Greet and ask how you can help
+2. If they want a booking: ask dates, then room type
+3. Check availability before quoting anything
+4. Collect name and phone, repeat details back
+5. Confirm booking and mention manager will call back"></textarea>
+      <label>Rules the agent must always follow</label>
+      <textarea id="f_rules" rows="5" placeholder="Never offer any discount
+If caller is angry, apologise once and offer a manager callback
+Never discuss competitors
+Calls should stay under 4 minutes"></textarea>
+      <div class="hint" style="margin-top:10px"><b>Identity handling (built-in):</b> the agent never
+        volunteers that it's an AI and speaks like a real person. If a caller asks directly, it
+        answers in one confident sentence ("Main Priya hoon, Hotel Sunrise ki assistant") and moves
+        straight back to helping — natural, no robotic disclaimers, and no false "I am human" claims
+        that could create legal trouble for your client.</div>
     </div></div>
 
     <div class="tabpane" id="t-knowledge"><div class="card" style="max-width:720px">
@@ -584,6 +610,9 @@ function fillForm(c) {
   set('f_agent', c.agent_name); set('f_id', c.client_id); set('f_biz', c.business_name);
   set('f_lang', c.default_language || 'hi-IN'); set('f_voice', c.tts_voice || 'priya');
   set('f_persona', c.persona);
+  set('f_pace', c.speech_pace || 1);
+  document.getElementById('paceVal').textContent = '· ' + (c.speech_pace || 1) + 'x';
+  set('f_workflow', c.call_workflow); set('f_rules', c.call_rules);
   const k = c.knowledge || {};
   const friendly = !Object.keys(k).some(key =>
     !['about','products','timings','location','policies'].includes(key));
@@ -664,6 +693,9 @@ async function saveAgent() {
     supported_languages: [...new Set([lang, 'hi-IN', 'en-IN'])],
     tts_voice: document.getElementById('f_voice').value,
     persona: document.getElementById('f_persona').value.trim(),
+    speech_pace: Number(document.getElementById('f_pace').value) || 1,
+    call_workflow: document.getElementById('f_workflow').value.trim(),
+    call_rules: document.getElementById('f_rules').value.trim(),
     knowledge,
     shopify: {
       domain: document.getElementById('s_domain').value.trim(),
