@@ -71,21 +71,23 @@ TOOL_SCHEMAS = ToolsSchema(
 )
 
 
-def _stt_language(client_cfg: dict):
-    """Client's main language as a pipecat Language, or None for auto-detect."""
-    from pipecat.transcriptions.language import Language
+# Codes Sarvam's streaming STT accepts for the language parameter.
+_SARVAM_STT_CODES = {
+    "hi-IN", "bn-IN", "kn-IN", "ml-IN", "mr-IN", "od-IN", "pa-IN", "ta-IN",
+    "te-IN", "en-IN", "gu-IN", "as-IN", "ur-IN", "ne-IN",
+}
 
-    mode = client_cfg.get("stt_language", "locked")
-    if mode == "auto":
+
+def _stt_language(client_cfg: dict):
+    """Sarvam language code to lock transcription to, or None for auto-detect.
+
+    Sarvam expects its own region codes ('hi-IN'); passing anything else kills
+    the STT stream mid-call (the 'agent goes deaf' bug).
+    """
+    if client_cfg.get("stt_language", "locked") == "auto":
         return None
     code = client_cfg.get("default_language", "hi-IN")
-    mapping = {
-        "hi-IN": Language.HI, "en-IN": Language.EN_IN, "ta-IN": Language.TA,
-        "te-IN": Language.TE, "bn-IN": Language.BN, "mr-IN": Language.MR,
-        "kn-IN": Language.KN, "gu-IN": Language.GU, "pa-IN": Language.PA,
-        "ml-IN": Language.ML,
-    }
-    return mapping.get(code)
+    return code if code in _SARVAM_STT_CODES else None
 
 
 async def _handle_check_availability(params: FunctionCallParams):
@@ -131,8 +133,9 @@ async def run_bot(
             model="bulbul:v3",
             voice=client_cfg.get("tts_voice", "priya"),
             language=client_cfg.get("default_language", "hi-IN"),
-            # Slightly brisker than default — closer to natural phone-agent pace.
-            pace=1.15,
+            # Natural speed by default; per-client override via "speech_pace"
+            # (e.g. 0.9 slower, 1.1 brisker).
+            pace=float(client_cfg.get("speech_pace", 1.0)),
         ),
     )
 
