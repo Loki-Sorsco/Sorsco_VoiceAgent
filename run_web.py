@@ -121,10 +121,13 @@ async def bot(runner_args: RunnerArguments):
                 return
         # Inbound phone call with no task: normal receptionist, phone audio.
         if getattr(runner_args, "transport_type", "websocket") != "websocket":
+            from_number = (call_data.get("from_number") if isinstance(call_data, dict)
+                           else getattr(call_data, "from_number", None))
             client_cfg = load_client(
                 get_active_client_id(default=os.environ.get("CLIENT_ID", "hotel_sunrise"))
             )
-            await run_bot(transport, client_cfg, handle_sigint=False, telephony=True)
+            await run_bot(transport, client_cfg, handle_sigint=False,
+                          telephony=True, caller_phone=from_number)
             return
 
     # If an order call was "taken" in /admin, this browser connection becomes

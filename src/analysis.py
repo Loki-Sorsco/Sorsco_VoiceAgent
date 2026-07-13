@@ -29,9 +29,10 @@ _PROMPT = """You analyse call-centre transcripts. Reply with ONLY a JSON object,
  "resolution": "<resolved | unresolved | follow_up_needed>",
  "language": "<main language the CALLER spoke, e.g. Hindi, Hinglish, English>",
  "sentiment": "<positive | neutral | negative — the CALLER's mood>",
- "intent": "<hot | warm | cold — how likely the caller is to buy/book/confirm>"}
+ "intent": "<hot | warm | cold — how likely the caller is to buy/book/confirm>",
+ "unanswered": "<a specific question the caller asked that the agent could NOT answer from its knowledge (it deflected, guessed, or said it would check) — quote it briefly; or 'none'>"}
 
-Write summary and issue in simple English regardless of the call language.""" % ", ".join(CATEGORIES)
+Write summary, issue and unanswered in simple English regardless of the call language.""" % ", ".join(CATEGORIES)
 
 
 def analyze_call(record: dict) -> dict | None:
@@ -53,6 +54,7 @@ def analyze_call(record: dict) -> dict | None:
             "language": "-",
             "sentiment": "neutral",
             "intent": "cold",
+            "unanswered": "none",
         }
 
     from src.llm_factory import chat_complete
@@ -78,6 +80,7 @@ def analyze_call(record: dict) -> dict | None:
             "language": str(data.get("language", ""))[:40],
             "sentiment": sentiment if sentiment in ("positive", "neutral", "negative") else "neutral",
             "intent": intent if intent in ("hot", "warm", "cold") else "cold",
+            "unanswered": str(data.get("unanswered", "none"))[:200],
         }
     except Exception as e:
         logger.warning(f"Call analysis failed: {e}")

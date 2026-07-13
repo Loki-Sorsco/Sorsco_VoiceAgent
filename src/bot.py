@@ -108,13 +108,16 @@ async def run_bot(
     handle_sigint: bool = True,
     call_task: dict | None = None,
     telephony: bool = False,
+    caller_phone: str | None = None,
 ):
     """Run one call session on the given transport.
 
     call_task: an outbound order-call task from the call queue (COD confirm,
     pending payment, abandoned cart). None = normal inbound receptionist call.
     telephony: True for real phone lines (8 kHz audio).
+    caller_phone: the customer's number (for cross-call memory), if known.
     """
+    phone = caller_phone or (call_task or {}).get("customer_phone", "")
     stt = SarvamSTTService(
         api_key=os.environ["SARVAM_API_KEY"],
         settings=SarvamSTTService.Settings(
@@ -151,10 +154,17 @@ async def run_bot(
         system_prompt = build_system_prompt(client_cfg)
         tools = TOOL_SCHEMAS
 
-    context = LLMContext(
-        messages=[{"role": "system", "content": system_prompt}],
-        tools=tools,
-    )
+    # Cross-call memory: if we've spoken with this number before, give the
+    # agent a short recap so it treats them as a returning customer.
+    messages = [{"role": "system", "content": system_prompt}]
+    if phone:
+        from src.memory import memory_note
+
+        note = memory_note(phone, (call_task or {}).get("customer_name", ""))
+        if note:
+            messages.append({"role": "system", "content": note})
+
+    context = LLMContext(messages=messages, tools=tools)
     # Slightly stricter than the defaults to resist speaker echo, but low
     # enough that a quiet microphone still triggers turns. min_volume is the
     # sensitive knob: too high (>0.7) and quiet mics never get a reply.
@@ -266,6 +276,8 @@ async def run_bot(
                 "agent": client_cfg["agent_name"],
                 "kind": call_task["flow"] if call_task else "inbound",
                 "order_id": call_task["order_id"] if call_task else None,
+                "customer_name": (call_task or {}).get("customer_name", ""),
+                "customer_phone": phone,
                 "outcome": outcome,
                 "started": events[0]["time"] if events else "",
                 "duration_s": int(_time.time() - started),

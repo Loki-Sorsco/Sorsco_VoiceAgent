@@ -470,6 +470,12 @@ def register_admin(app: FastAPI):
 
     # ------------------------------------------------------ history & stats
 
+    @app.get("/api/knowledge-gaps")
+    def knowledge_gaps_api(client_id: str | None = None):
+        from src.memory import knowledge_gaps
+
+        return {"gaps": knowledge_gaps(client_id)[:12]}
+
     @app.get("/api/history")
     def history():
         from src.analysis import analyze_call
@@ -497,7 +503,7 @@ def register_admin(app: FastAPI):
         headers = [
             "Started", "Agent", "Business", "Call type", "Outcome", "Duration (s)",
             "Turns", "Caller language", "Category", "Issue faced", "Summary",
-            "Resolution", "Sentiment", "Lead intent", "Transcript",
+            "Resolution", "Sentiment", "Lead intent", "Couldn't answer", "Customer phone", "Transcript",
         ]
         ws.append(headers)
         for c in ws[1]:
@@ -515,9 +521,10 @@ def register_admin(app: FastAPI):
                 r.get("duration_s", 0), r.get("turns", 0), a.get("language", ""),
                 a.get("category", ""), a.get("issue", ""), a.get("summary", ""),
                 a.get("resolution", ""), a.get("sentiment", ""), a.get("intent", ""),
-                transcript[:3000],
+                (a.get("unanswered", "") if a.get("unanswered", "none") != "none" else ""),
+                r.get("customer_phone", ""), transcript[:3000],
             ])
-        widths = [10, 12, 22, 16, 14, 12, 8, 14, 18, 40, 50, 16, 12, 12, 80]
+        widths = [10, 12, 22, 16, 14, 12, 8, 14, 18, 40, 50, 16, 12, 12, 34, 16, 80]
         for i, w in enumerate(widths, 1):
             ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
 
