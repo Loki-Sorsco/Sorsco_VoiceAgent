@@ -55,7 +55,7 @@ def create_llm():
     )
 
 
-def chat_complete(system_prompt: str, messages: list[dict]) -> str:
+def chat_complete(system_prompt: str, messages: list[dict], max_tokens: int = 400) -> str:
     """One-shot text completion for the console's chat-test (no tools, no voice)."""
     from openai import OpenAI
 
@@ -73,6 +73,6 @@ def chat_complete(system_prompt: str, messages: list[dict]) -> str:
     r = client.chat.completions.create(
         model=os.environ.get("LLM_MODEL", default_model),
         messages=[{"role": "system", "content": system_prompt}, *messages],
-        max_tokens=400,
+        max_tokens=max_tokens,
     )
     return r.choices[0].message.content or ""

@@ -276,6 +276,55 @@ def register_admin(app: FastAPI):
         except Exception as e:
             raise HTTPException(400, f"Could not reach the store: {e}")
 
+    @app.post("/api/import-website")
+    async def import_website(body: dict):
+        """One-click onboarding: read a business website, extract agent knowledge."""
+        url = (body.get("url") or "").strip()
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
+        import re
+
+        import aiohttp
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                    headers={"User-Agent": "Mozilla/5.0 (SorscoVoice onboarding)"},
+                    max_redirects=4,
+                ) as r:
+                    html = (await r.text(errors="replace"))[:400_000]
+        except Exception as e:
+            raise HTTPException(400, f"Could not fetch that website: {e}")
+
+        text = re.sub(r"(?is)<(script|style|nav|footer|svg)[^>]*>.*?</\1>", " ", html)
+        text = re.sub(r"(?s)<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()[:9000]
+        if len(text) < 100:
+            raise HTTPException(400, "That page has too little readable text to learn from")
+
+        from src.llm_factory import chat_complete
+
+        prompt = (
+            "Extract business facts from this website text for a phone agent. Reply with "
+            'ONLY JSON: {"business_name": "", "about": "", '
+            '"products": [{"name": "", "price": "", "details": ""}], '
+            '"timings": "", "location": "", "policies": ""}. '
+            "Prices as plain numbers/strings if shown; leave fields empty if unknown. "
+            "Max 12 products."
+        )
+        try:
+            reply = chat_complete(prompt, [{"role": "user", "content": text}], max_tokens=1200)
+            reply = reply.replace("```json", "").replace("```", "")
+            start, end = reply.find("{"), reply.rfind("}")
+            if start == -1 or end <= start:
+                raise ValueError(f"model returned no JSON: {reply[:120]!r}")
+            data = json.loads(reply[start : end + 1])
+        except Exception as e:
+            raise HTTPException(500, f"Could not extract knowledge: {e}")
+        return {"knowledge": data, "chars_read": len(text)}
+
     @app.post("/api/chat-test/{client_id}")
     def chat_test(client_id: str, body: dict):
         """Text-only agent test for the console (no voice, no tools)."""
@@ -311,6 +360,21 @@ def register_admin(app: FastAPI):
 
         return telephony_status()
 
+    def _within_calling_hours(client_id: str) -> tuple[bool, str]:
+        """TRAI-style calling window (IST), configurable per agent."""
+        from datetime import datetime, timedelta, timezone
+
+        try:
+            cfg = _load_client(client_id)
+        except HTTPException:
+            cfg = {}
+        hours = cfg.get("call_hours") or {}
+        start, end = int(hours.get("start", 9)), int(hours.get("end", 21))
+        # Fixed IST offset — works without a tz database on any host.
+        now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+        ok = start <= now.hour < end
+        return ok, f"Calls allowed {start}:00–{end}:00 IST (now {now.strftime('%H:%M')} IST)"
+
     @app.post("/api/queue/{task_id}/dial")
     async def dial_task(task_id: str):
         from src.telephony import place_call
@@ -318,6 +382,9 @@ def register_admin(app: FastAPI):
         task = get_task(task_id)
         if not task:
             raise HTTPException(404, "No such task")
+        ok, window = _within_calling_hours(task["client_id"])
+        if not ok:
+            raise HTTPException(400, f"Outside calling hours. {window}")
         try:
             result = await place_call(task)
         except ValueError as e:
@@ -329,9 +396,13 @@ def register_admin(app: FastAPI):
     async def dial_all():
         from src.telephony import place_call
 
-        dialed, errors = [], []
+        dialed, errors, held = [], [], 0
         for task in list_tasks():
             if task["status"] != "queued":
+                continue
+            ok, _ = _within_calling_hours(task["client_id"])
+            if not ok:
+                held += 1
                 continue
             try:
                 await place_call(task)
@@ -339,7 +410,7 @@ def register_admin(app: FastAPI):
                 dialed.append(task["task_id"])
             except ValueError as e:
                 errors.append(f"{task.get('customer_name','?')}: {e}")
-        return {"dialed": len(dialed), "errors": errors[:5]}
+        return {"dialed": len(dialed), "held_for_hours": held, "errors": errors[:5]}
 
     @app.post("/api/shopify/pull/{client_id}")
     async def shopify_pull(client_id: str, body: dict):
@@ -426,7 +497,7 @@ def register_admin(app: FastAPI):
         headers = [
             "Started", "Agent", "Business", "Call type", "Outcome", "Duration (s)",
             "Turns", "Caller language", "Category", "Issue faced", "Summary",
-            "Resolution", "Transcript",
+            "Resolution", "Sentiment", "Lead intent", "Transcript",
         ]
         ws.append(headers)
         for c in ws[1]:
@@ -443,9 +514,10 @@ def register_admin(app: FastAPI):
                 (r.get("kind") or "").replace("_", " "), r.get("outcome") or "",
                 r.get("duration_s", 0), r.get("turns", 0), a.get("language", ""),
                 a.get("category", ""), a.get("issue", ""), a.get("summary", ""),
-                a.get("resolution", ""), transcript[:3000],
+                a.get("resolution", ""), a.get("sentiment", ""), a.get("intent", ""),
+                transcript[:3000],
             ])
-        widths = [10, 12, 22, 16, 14, 12, 8, 14, 18, 40, 50, 16, 80]
+        widths = [10, 12, 22, 16, 14, 12, 8, 14, 18, 40, 50, 16, 12, 12, 80]
         for i, w in enumerate(widths, 1):
             ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
 
@@ -474,6 +546,16 @@ def register_admin(app: FastAPI):
         revenue = sum(
             float(orders.get(str(oid), {}).get("total") or 0) for oid in set(confirmed_ids)
         )
+        categories, sentiments, hot_leads = {}, {"positive": 0, "neutral": 0, "negative": 0}, 0
+        for c in calls:
+            a = c.get("analysis") or {}
+            if a.get("category"):
+                categories[a["category"]] = categories.get(a["category"], 0) + 1
+            if a.get("sentiment") in sentiments:
+                sentiments[a["sentiment"]] += 1
+            if a.get("intent") == "hot":
+                hot_leads += 1
+        top_categories = sorted(categories.items(), key=lambda kv: -kv[1])[:4]
         return {
             "calls_total": len(calls),
             "order_calls": sum(1 for c in calls if c.get("kind") != "inbound"),
@@ -481,6 +563,9 @@ def register_admin(app: FastAPI):
             "cancelled": sum(1 for c in calls if c.get("outcome") == "cancelled"),
             "revenue_confirmed": int(revenue),
             "minutes": round(sum(c.get("duration_s", 0) for c in calls) / 60, 1),
+            "top_categories": top_categories,
+            "sentiments": sentiments,
+            "hot_leads": hot_leads,
         }
 
     @app.get("/admin", response_class=HTMLResponse)

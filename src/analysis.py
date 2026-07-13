@@ -27,7 +27,9 @@ _PROMPT = """You analyse call-centre transcripts. Reply with ONLY a JSON object,
  "issue": "<the caller's main question/problem/request in one short sentence, or 'none'>",
  "category": "<one of: %s>",
  "resolution": "<resolved | unresolved | follow_up_needed>",
- "language": "<main language the CALLER spoke, e.g. Hindi, Hinglish, English>"}
+ "language": "<main language the CALLER spoke, e.g. Hindi, Hinglish, English>",
+ "sentiment": "<positive | neutral | negative — the CALLER's mood>",
+ "intent": "<hot | warm | cold — how likely the caller is to buy/book/confirm>"}
 
 Write summary and issue in simple English regardless of the call language.""" % ", ".join(CATEGORIES)
 
@@ -49,6 +51,8 @@ def analyze_call(record: dict) -> dict | None:
             "category": "casual_or_test",
             "resolution": "unresolved",
             "language": "-",
+            "sentiment": "neutral",
+            "intent": "cold",
         }
 
     from src.llm_factory import chat_complete
@@ -64,12 +68,16 @@ def analyze_call(record: dict) -> dict | None:
         data = json.loads(reply[start : end + 1])
         if data.get("category") not in CATEGORIES:
             data["category"] = "other"
+        sentiment = str(data.get("sentiment", "neutral")).lower()
+        intent = str(data.get("intent", "cold")).lower()
         return {
             "summary": str(data.get("summary", ""))[:300],
             "issue": str(data.get("issue", ""))[:300],
             "category": data["category"],
             "resolution": str(data.get("resolution", "unresolved"))[:40],
             "language": str(data.get("language", ""))[:40],
+            "sentiment": sentiment if sentiment in ("positive", "neutral", "negative") else "neutral",
+            "intent": intent if intent in ("hot", "warm", "cold") else "cold",
         }
     except Exception as e:
         logger.warning(f"Call analysis failed: {e}")

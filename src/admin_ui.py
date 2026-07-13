@@ -14,31 +14,39 @@ ADMIN_PAGE = r"""<!doctype html>
 <title>Sorsco Voice — Console</title>
 <style>
   :root {
-    --bg:#0d0f12; --surface:#15181c; --surface2:#1c2026; --line:#2a2f36;
-    --text:#eef0f3; --muted:#8b929d; --accent:#8b7cf7; --accent-soft:#241f45;
-    --good:#34d399; --good-soft:#0b2e22; --bad:#f87171; --bad-soft:#3a1414;
-    --warn:#fbbf24; --warn-soft:#33260a;
+    --bg:#0b0d10; --surface:#111418; --surface2:#171b21; --line:#232830;
+    --text:#e4e7ec; --muted:#7c8592; --accent:#5e6ad2; --accent-soft:rgba(94,106,210,.14);
+    --good:#3fb950; --good-soft:rgba(63,185,80,.13); --bad:#e5534b; --bad-soft:rgba(229,83,75,.13);
+    --warn:#d29922; --warn-soft:rgba(210,153,34,.13);
   }
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; }
   body { background:var(--bg); color:var(--text);
-    font:14px/1.55 "Segoe UI",system-ui,sans-serif; display:flex; }
+    font:13.5px/1.55 "Segoe UI",system-ui,sans-serif; display:flex;
+    -webkit-font-smoothing:antialiased; }
   ::selection { background:var(--accent); color:#fff; }
+  svg.i { width:15px; height:15px; stroke:currentColor; fill:none;
+    stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; flex:none; }
 
   /* ---------- sidebar ---------- */
-  aside { width:210px; flex:none; background:var(--surface); border-right:1px solid var(--line);
-    display:flex; flex-direction:column; padding:18px 12px; gap:4px; min-height:100vh; }
-  .logo { font-weight:700; font-size:15.5px; padding:4px 10px 16px; letter-spacing:.01em; }
-  .logo span { color:var(--accent); }
-  .nav { display:flex; flex-direction:column; gap:2px; }
+  aside { width:216px; flex:none; background:var(--surface); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; padding:16px 10px; gap:2px; min-height:100vh; }
+  .logo { font-weight:600; font-size:14px; padding:6px 12px 4px; letter-spacing:.02em; }
+  .logo span { color:var(--muted); font-weight:400; }
+  .logo .dot { display:inline-block; width:8px; height:8px; border-radius:2px;
+    background:var(--accent); margin-right:8px; }
+  .navlabel { font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); opacity:.7; padding:16px 12px 6px; }
+  .nav { display:flex; flex-direction:column; gap:1px; }
   .nav button { display:flex; align-items:center; gap:10px; width:100%; text-align:left;
-    background:none; border:0; color:var(--muted); font:inherit; font-weight:600;
-    padding:9px 10px; border-radius:8px; cursor:pointer; }
+    background:none; border:0; border-left:2px solid transparent; color:var(--muted);
+    font:inherit; font-size:13px; font-weight:500;
+    padding:7px 10px; border-radius:6px; cursor:pointer; }
   .nav button:hover { background:var(--surface2); color:var(--text); }
-  .nav button.on { background:var(--surface2); color:var(--text); }
-  .nav button .ic { width:17px; text-align:center; opacity:.9; }
-  aside .foot { margin-top:auto; padding:10px; font-size:12px; color:var(--muted); }
-  aside .foot a { color:var(--accent); text-decoration:none; }
+  .nav button.on { background:var(--surface2); color:var(--text); border-left-color:var(--accent); }
+  aside .foot { margin-top:auto; padding:10px 12px; font-size:11.5px; color:var(--muted); }
+  aside .foot a { color:var(--muted); text-decoration:none; border-bottom:1px solid var(--line); }
+  aside .foot a:hover { color:var(--text); }
 
   /* ---------- main ---------- */
   main { flex:1; padding:26px 34px 60px; overflow-y:auto; min-width:0; }
@@ -49,54 +57,68 @@ ADMIN_PAGE = r"""<!doctype html>
   .topbar .grow { flex:1; }
 
   /* ---------- primitives ---------- */
-  .btn { padding:8px 15px; border:0; border-radius:8px; font:inherit; font-size:13.5px;
-    font-weight:600; cursor:pointer; background:#fff; color:#0d0f12; }
-  .btn:hover { background:#e8eaee; }
-  .btn.ghost { background:var(--surface2); color:var(--text); border:1px solid var(--line); }
-  .btn.ghost:hover { background:#242933; }
-  .btn.danger { background:var(--bad-soft); color:var(--bad); border:1px solid #5c2626; }
-  .btn.small { padding:5px 11px; font-size:12.5px; }
+  .btn { display:inline-flex; align-items:center; gap:7px; padding:7px 14px; border:1px solid transparent;
+    border-radius:6px; font:inherit; font-size:12.5px;
+    font-weight:600; cursor:pointer; background:var(--accent); color:#fff; }
+  .btn:hover { background:#6b77dd; }
+  .btn.ghost { background:transparent; color:var(--text); border-color:var(--line); }
+  .btn.ghost:hover { background:var(--surface2); border-color:#2e3540; }
+  .btn.danger { background:transparent; color:var(--bad); border-color:rgba(229,83,75,.4); }
+  .btn.danger:hover { background:var(--bad-soft); }
+  .btn.small { padding:4px 10px; font-size:12px; }
   .btn:disabled { opacity:.45; cursor:default; }
-  input,select,textarea { width:100%; padding:8px 11px; border:1px solid var(--line);
-    border-radius:8px; font:inherit; font-size:13.5px; background:var(--surface2); color:var(--text); }
-  input:focus,select:focus,textarea:focus,button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  input,select,textarea { width:100%; padding:7px 10px; border:1px solid var(--line);
+    border-radius:6px; font:inherit; font-size:13px; background:var(--bg); color:var(--text); }
+  input:hover,select:hover,textarea:hover { border-color:#2e3540; }
+  input:focus,select:focus,textarea:focus,button:focus-visible { outline:none;
+    border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
   textarea { resize:vertical; }
-  label { display:block; font-size:12px; font-weight:600; margin:14px 0 5px; color:var(--muted);
-    text-transform:uppercase; letter-spacing:.06em; }
-  .card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px; }
-  .chip { display:inline-block; font-size:11.5px; font-weight:700; padding:2px 9px;
-    border-radius:99px; background:var(--surface2); border:1px solid var(--line); color:var(--muted); }
-  .chip.acc { color:var(--accent); border-color:var(--accent-soft); background:var(--accent-soft); }
+  label { display:block; font-size:11px; font-weight:600; margin:14px 0 5px; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.07em; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:18px 20px; }
+  .chip { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600;
+    padding:1px 8px; border-radius:4px; background:var(--surface2);
+    border:1px solid var(--line); color:var(--muted); }
+  .chip.acc { color:#98a2ea; border-color:transparent; background:var(--accent-soft); }
   .chip.ok { color:var(--good); background:var(--good-soft); border-color:transparent; }
   .chip.bad { color:var(--bad); background:var(--bad-soft); border-color:transparent; }
   .chip.warn { color:var(--warn); background:var(--warn-soft); border-color:transparent; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .hint { font-size:12.5px; color:var(--muted); }
   table { border-collapse:collapse; width:100%; font-size:13.5px; }
-  th { text-align:left; font-size:11px; letter-spacing:.07em; text-transform:uppercase;
-    color:var(--muted); padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
-  td { padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { text-align:left; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); padding:8px 12px; border-bottom:1px solid var(--line);
+    white-space:nowrap; font-weight:600; }
+  td { padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; font-size:13px; }
   tr:last-child td { border-bottom:0; }
+  tbody tr:hover td { background:rgba(255,255,255,.015); }
   .tablewrap { overflow-x:auto; }
   #toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
-    background:#fff; color:#0d0f12; font-weight:600; font-size:13.5px;
-    padding:10px 18px; border-radius:10px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:99; }
-  #toast.err { background:var(--bad); color:#fff; }
+    background:var(--surface2); color:var(--text); border:1px solid var(--line);
+    font-weight:500; font-size:13px; box-shadow:0 8px 24px rgba(0,0,0,.45);
+    padding:9px 16px; border-radius:8px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:99; }
+  #toast.err { border-color:var(--bad); color:var(--bad); }
 
   /* ---------- overview ---------- */
-  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:22px; }
-  .tile { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
-  .tile .k { font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; font-weight:600; }
-  .tile .v { font-size:26px; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums; }
-  .tile .v small { font-size:14px; color:var(--muted); font-weight:600; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr)); gap:10px; margin-bottom:16px; }
+  .tile { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px 16px; }
+  .tile .k { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
+  .tile .v { font-size:23px; font-weight:600; margin-top:5px; font-variant-numeric:tabular-nums; }
+  .tile .v small { font-size:13px; color:var(--muted); font-weight:500; }
+  .insight-row { display:flex; align-items:center; gap:10px; padding:6px 0; font-size:12.5px; }
+  .insight-row .bar { height:4px; border-radius:2px; background:var(--accent); opacity:.8; }
+  .insight-row .n { color:var(--muted); font-variant-numeric:tabular-nums; min-width:20px; text-align:right; }
+  .sdot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; }
 
   /* ---------- agents ---------- */
   .agents { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px; }
   .agent { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px; }
   .agent:hover { border-color:#3a414c; }
   .agent .top { display:flex; gap:12px; align-items:center; margin-bottom:10px; }
-  .avatar { width:42px; height:42px; border-radius:50%; flex:none; display:flex; align-items:center;
-    justify-content:center; font-weight:700; font-size:17px; background:var(--accent-soft); color:var(--accent); }
+  .avatar { width:36px; height:36px; border-radius:8px; flex:none; display:flex; align-items:center;
+    justify-content:center; font-weight:600; font-size:14px; background:var(--accent-soft); color:#98a2ea;
+    border:1px solid rgba(94,106,210,.25); }
   .agent h3 { margin:0; font-size:15px; }
   .agent .who { color:var(--muted); font-size:12.5px; }
   .agent .chips { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 14px; }
@@ -133,7 +155,7 @@ ADMIN_PAGE = r"""<!doctype html>
   .switch input:checked + .sl:before { background:#fff; transform:translateX(16px); }
 
   /* ---------- calls ---------- */
-  .pill { font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:99px; white-space:nowrap; }
+  .pill { font-size:11px; font-weight:600; padding:1px 8px; border-radius:4px; white-space:nowrap; }
   .pill.queued { background:var(--warn-soft); color:var(--warn); }
   .pill.dialing { background:var(--accent-soft); color:var(--accent); }
   .pill.in_progress { background:var(--accent-soft); color:var(--accent); }
@@ -171,14 +193,23 @@ ADMIN_PAGE = r"""<!doctype html>
 </head>
 <body>
 <aside>
-  <div class="logo">Sorsco <span>Voice</span></div>
+  <div class="logo"><span class="dot"></span>Sorsco <span>Voice</span></div>
+  <div class="navlabel">Workspace</div>
   <div class="nav">
-    <button data-v="overview" class="on"><span class="ic">◧</span><span class="tx">Overview</span></button>
-    <button data-v="agents"><span class="ic">☻</span><span class="tx">Agents</span></button>
-    <button data-v="calls"><span class="ic">✆</span><span class="tx">Calls</span></button>
-    <button data-v="integrations"><span class="ic">⚡</span><span class="tx">Integrations</span></button>
+    <button data-v="overview" class="on">
+      <svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span class="tx">Overview</span></button>
+    <button data-v="agents">
+      <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.4-3.4 3.9-5 7-5s5.6 1.6 7 5"/></svg>
+      <span class="tx">Agents</span></button>
+    <button data-v="calls">
+      <svg class="i" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.7 2z"/></svg>
+      <span class="tx">Calls</span></button>
+    <button data-v="integrations">
+      <svg class="i" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      <span class="tx">Integrations</span></button>
   </div>
-  <div class="foot">Full call page:<br><a href="/client/" target="_blank">/client/ ↗</a></div>
+  <div class="foot">Public call page<br><a href="/client/" target="_blank">open /client/</a></div>
 </aside>
 
 <main>
@@ -187,11 +218,12 @@ ADMIN_PAGE = r"""<!doctype html>
     <div class="topbar">
       <div class="grow"><h1>Overview</h1>
         <div class="sub">Live picture of your voice agents and order calls.</div></div>
-      <button class="btn ghost" onclick="simulate('cod')">＋ Simulate COD order</button>
-      <button class="btn" onclick="openTest()">▶ Test active agent</button>
+      <button class="btn ghost" onclick="simulate('cod')">Simulate COD order</button>
+      <button class="btn" onclick="openTest()">Test agent</button>
     </div>
     <div class="tiles" id="tiles"></div>
     <div id="checklist" class="card" style="margin-bottom:16px"></div>
+    <div class="card" id="insights" style="margin-bottom:16px;display:none"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="ovgrid">
       <div class="card">
         <div class="topbar" style="margin-bottom:8px">
@@ -216,7 +248,7 @@ ADMIN_PAGE = r"""<!doctype html>
     <div class="topbar">
       <div class="grow"><h1>Agents</h1>
         <div class="sub">Each agent is one business. The <b>active</b> agent answers the call page.</div></div>
-      <button class="btn" onclick="editAgent(null)">＋ New agent</button>
+      <button class="btn" onclick="editAgent(null)">New agent</button>
     </div>
     <div class="agents" id="agentGrid"></div>
   </div>
@@ -260,7 +292,7 @@ ADMIN_PAGE = r"""<!doctype html>
               <option>aditya</option><option>rahul</option><option>rohan</option><option>amit</option>
               <option>dev</option><option>varun</option><option>kabir</option>
             </select>
-            <button class="btn ghost small" onclick="previewVoice()" title="Hear this voice">▶</button>
+            <button class="btn ghost small" onclick="previewVoice()" title="Hear this voice">Play</button>
           </div></div>
       </div>
       <label>Personality <span style="text-transform:none">(who is the agent?)</span></label>
@@ -286,6 +318,11 @@ ADMIN_PAGE = r"""<!doctype html>
 If caller is angry, apologise once and offer a manager callback
 Never discuss competitors
 Calls should stay under 4 minutes"></textarea>
+      <label>Outbound calling hours (IST)</label>
+      <div style="display:flex;gap:10px;align-items:center;max-width:320px">
+        <select id="f_hstart"></select><span class="hint">to</span><select id="f_hend"></select>
+      </div>
+      <div class="hint">Dialing outside this window is blocked automatically — keeps clients TRAI-compliant (default 9:00–21:00).</div>
       <div class="hint" style="margin-top:10px"><b>Identity handling (built-in):</b> the agent never
         volunteers that it's an AI and speaks like a real person. If a caller asks directly, it
         answers in one confident sentence ("Main Priya hoon, Hotel Sunrise ki assistant") and moves
@@ -295,11 +332,17 @@ Calls should stay under 4 minutes"></textarea>
 
     <div class="tabpane" id="t-knowledge"><div class="card" style="max-width:720px">
       <p class="hint" style="margin-top:0">Fill what applies — the agent only states facts from here.</p>
+      <label>Import from the business website</label>
+      <div style="display:flex;gap:8px">
+        <input id="k_url" placeholder="www.yourbusiness.com">
+        <button class="btn ghost" id="importBtn" onclick="importWebsite()">Import</button>
+      </div>
+      <div class="hint">Reads the site and fills the fields below automatically — review, then save.</div>
       <label>About the business</label>
       <textarea id="k_about" rows="2" placeholder="A 30-room heritage hotel near Hawa Mahal..."></textarea>
       <label>Products / services & prices</label>
       <div id="prodRows"></div>
-      <button class="btn ghost small" onclick="addProd()">＋ Add item</button>
+      <button class="btn ghost small" onclick="addProd()">Add item</button>
       <div class="row2" style="margin-top:6px">
         <div><label>Timings</label><input id="k_timings" placeholder="Mon–Sat 9am–8pm"></div>
         <div><label>Location</label><input id="k_location" placeholder="42 MG Road, Jaipur"></div>
@@ -364,10 +407,10 @@ Calls should stay under 4 minutes"></textarea>
   <div class="view" id="v-calls">
     <div class="topbar">
       <div class="grow"><h1>Calls</h1><div class="sub">Queued order calls and full history with transcripts.</div></div>
-      <button class="btn ghost" onclick="simulate('cod')">＋ Simulate COD order</button>
-      <button class="btn ghost" onclick="simulate('pending')">＋ Simulate pending payment</button>
-      <button class="btn ghost" id="dialAllBtn" style="display:none" onclick="dialAll()">📞 Dial all queued</button>
-      <button class="btn" onclick="openModal('mCampaign')">📢 New campaign</button>
+      <button class="btn ghost" onclick="simulate('cod')">Simulate COD order</button>
+      <button class="btn ghost" onclick="simulate('pending')">Simulate pending payment</button>
+      <button class="btn ghost" id="dialAllBtn" style="display:none" onclick="dialAll()">Dial all queued</button>
+      <button class="btn" onclick="openModal('mCampaign')">New campaign</button>
     </div>
     <div class="card" style="margin-bottom:16px">
       <b>Queue</b>
@@ -380,7 +423,7 @@ Calls should stay under 4 minutes"></textarea>
         <div class="grow"><b>History</b></div>
         <input id="histSearch" placeholder="Search transcripts…" style="width:220px"
           oninput="renderHistory()">
-        <a class="btn ghost small" href="/api/history/export" style="text-decoration:none">⬇ Export Excel</a>
+        <a class="btn ghost small" href="/api/history/export" style="text-decoration:none">Export Excel</a>
       </div>
       <div class="tablewrap"><table id="histTable">
         <thead><tr><th>Started</th><th>Agent</th><th>Type</th><th>Category</th><th>Issue</th><th>Outcome</th><th>Length</th><th></th></tr></thead>
@@ -425,7 +468,7 @@ Calls should stay under 4 minutes"></textarea>
 Priya Patel, +919812345678"></textarea>
       <div class="btns"><button class="btn" onclick="startCampaign()">Queue calls</button></div>
       <p class="hint">Calls are queued instantly. With telephony connected they dial automatically;
-        for now use ▶ Take call on each to test in the browser.</p>
+        for now use Take call on each to test in the browser.</p>
     </div>
   </div>
 </div>
@@ -503,9 +546,35 @@ async function loadStats() {
       <div class="tile"><div class="k">Orders confirmed</div><div class="v">${s.confirmed}</div></div>
       <div class="tile"><div class="k">Cancelled</div><div class="v">${s.cancelled}</div></div>
       <div class="tile"><div class="k">Revenue confirmed</div><div class="v">₹${s.revenue_confirmed.toLocaleString('en-IN')}</div></div>
+      <div class="tile"><div class="k">Hot leads</div><div class="v">${s.hot_leads ?? 0}</div></div>
       <div class="tile"><div class="k">Talk time</div><div class="v">${s.minutes}<small> min</small></div></div>`;
     renderChecklist(s);
+    renderInsights(s);
   } catch(e) {}
+}
+function renderInsights(s) {
+  const el = document.getElementById('insights');
+  const cats = s.top_categories || [];
+  const sen = s.sentiments || {positive:0, neutral:0, negative:0};
+  if (!cats.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const max = Math.max(...cats.map(c => c[1]), 1);
+  el.innerHTML = `<b>Call insights</b>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:10px" class="ovgrid">
+      <div>
+        <div class="hint" style="margin-bottom:6px">What callers contact you about</div>
+        ${cats.map(([k, n]) => `<div class="insight-row">
+          <span style="min-width:140px">${k.replace(/_/g,' ')}</span>
+          <span class="bar" style="width:${Math.round(n/max*130)}px"></span>
+          <span class="n">${n}</span></div>`).join('')}
+      </div>
+      <div>
+        <div class="hint" style="margin-bottom:6px">Caller sentiment</div>
+        <div class="insight-row"><span class="sdot" style="background:var(--good)"></span>Positive<span class="n" style="margin-left:auto">${sen.positive}</span></div>
+        <div class="insight-row"><span class="sdot" style="background:var(--muted)"></span>Neutral<span class="n" style="margin-left:auto">${sen.neutral}</span></div>
+        <div class="insight-row"><span class="sdot" style="background:var(--bad)"></span>Negative<span class="n" style="margin-left:auto">${sen.negative}</span></div>
+      </div>
+    </div>`;
 }
 async function renderChecklist(s) {
   if (!CLIENTS.length) { try { const d = await api('/api/clients'); CLIENTS = d.clients; ACTIVE = d.active; } catch(e){} }
@@ -549,7 +618,7 @@ async function pollLive() {
         p.appendChild(b);
       } else if (e.type === 'tool') {
         const b = document.createElement('div');
-        b.className = 'bub tool'; b.textContent = '⚙ ' + e.name;
+        b.className = 'bub tool'; b.textContent = '' + e.name;
         p.appendChild(b);
       }
     });
@@ -583,10 +652,10 @@ async function loadAgents() {
         <button class="btn ghost small" onclick="editAgent('${c.client_id}')">Edit</button>
         ${c.client_id !== ACTIVE
           ? `<button class="btn ghost small" onclick="makeActive('${c.client_id}')">Set active</button>` : ''}
-        <button class="btn small" onclick="testAgent('${c.client_id}')">▶ Test</button>
+        <button class="btn small" onclick="testAgent('${c.client_id}')">Test</button>
       </div>
     </div>`).join('') +
-    `<div class="agent newcard" onclick="editAgent(null)">＋ New agent</div>`;
+    `<div class="agent newcard" onclick="editAgent(null)">New agent</div>`;
 }
 async function makeActive(id) {
   await api('/api/active-client/' + id, {method:'POST'});
@@ -630,7 +699,35 @@ function fillForm(c) {
   setTrig('tr_cod','tr_cod_min', t.cod_confirm ?? {enabled:true});
   setTrig('tr_pend','tr_pend_min', t.pending_payment ?? {enabled:true});
   setTrig('tr_cart','tr_cart_min', t.abandoned_checkout ?? {});
+  const hs = document.getElementById('f_hstart'), he = document.getElementById('f_hend');
+  if (!hs.options.length) {
+    for (let h = 0; h < 24; h++) {
+      hs.add(new Option(h + ':00', h)); he.add(new Option(h + ':00', h));
+    }
+  }
+  const hours = c.call_hours || {};
+  hs.value = hours.start ?? 9; he.value = hours.end ?? 21;
   updateWh();
+}
+async function importWebsite() {
+  const url = document.getElementById('k_url').value.trim();
+  if (!url) { toast('Enter the website address first', true); return; }
+  const btn = document.getElementById('importBtn');
+  btn.disabled = true; btn.textContent = 'Reading site…';
+  try {
+    const r = await api('/api/import-website', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({url})});
+    const k = r.knowledge || {};
+    if (k.business_name && !document.getElementById('f_biz').value.trim())
+      set('f_biz', k.business_name);
+    set('k_about', k.about); set('k_timings', k.timings);
+    set('k_location', k.location); set('k_policies', k.policies);
+    document.getElementById('prodRows').innerHTML = '';
+    (k.products || []).forEach(p => addProd(p));
+    if (!(k.products || []).length) addProd();
+    toast('Imported — review the fields, then Save');
+  } catch(e) { toast(e.message, true); }
+  btn.disabled = false; btn.textContent = 'Import';
 }
 function set(id, v) { document.getElementById(id).value = v ?? ''; }
 function setTrig(box, min, r) {
@@ -696,6 +793,8 @@ async function saveAgent() {
     speech_pace: Number(document.getElementById('f_pace').value) || 1,
     call_workflow: document.getElementById('f_workflow').value.trim(),
     call_rules: document.getElementById('f_rules').value.trim(),
+    call_hours: { start: Number(document.getElementById('f_hstart').value),
+                  end: Number(document.getElementById('f_hend').value) },
     knowledge,
     shopify: {
       domain: document.getElementById('s_domain').value.trim(),
@@ -741,12 +840,12 @@ function queueRow(t, compact) {
     <td><span class="pill ${t.status}">${t.status}</span>
         ${t.outcome ? '<br><span class="hint">' + esc(t.outcome) + '</span>' : ''}</td>
     <td style="white-space:nowrap">${t.status === 'queued'
-      ? `${TEL.configured ? `<button class="btn small" onclick="dialTask('${t.task_id}')">📞 Dial</button> ` : ''}
-         <button class="btn ${TEL.configured ? 'ghost ' : ''}small" onclick="takeAndTest('${t.task_id}')">▶ Take call</button>
+      ? `${TEL.configured ? `<button class="btn small" onclick="dialTask('${t.task_id}')">Dial</button> ` : ''}
+         <button class="btn ${TEL.configured ? 'ghost ' : ''}small" onclick="takeAndTest('${t.task_id}')">Take call</button>
          <button class="btn ghost small" onclick="dismissTask('${t.task_id}')">✕</button>`
       : (t.status === 'done' || t.status === 'callback')
       ? `<button class="btn ghost small" title="Queue this call again"
-           onclick="requeueTask('${t.task_id}')">↺ Call again</button>` : ''}</td>
+           onclick="requeueTask('${t.task_id}')">Call again</button>` : ''}</td>
   </tr>`;
 }
 let TEL = {configured:false};
@@ -810,8 +909,11 @@ function renderHistory() {
         <td>${esc(c.started || '')}</td>
         <td>${esc(c.agent)} <span class="hint">· ${esc(c.client)}</span></td>
         <td><span class="pill ${c.kind === 'inbound' ? 'inbound' : 'in_progress'}">${c.kind.replace(/_/g,' ')}</span></td>
-        <td>${a.category ? `<span class="chip acc">${a.category.replace(/_/g,' ')}</span>` : '<span class="hint">…</span>'}</td>
-        <td style="max-width:260px">${esc(a.issue && a.issue !== 'none' ? a.issue : (a.summary || ''))}</td>
+        <td>${a.category ? `<span class="chip acc">${a.category.replace(/_/g,' ')}</span>` : '<span class="hint">…</span>'}
+            ${a.intent === 'hot' ? '<span class="chip warn">hot lead</span>' : ''}</td>
+        <td style="max-width:260px">${a.sentiment ? `<span class="sdot" style="background:var(--${
+          a.sentiment === 'positive' ? 'good' : a.sentiment === 'negative' ? 'bad' : 'muted'})"
+          title="${a.sentiment}"></span>` : ''}${esc(a.issue && a.issue !== 'none' ? a.issue : (a.summary || ''))}</td>
         <td>${c.outcome ? `<span class="pill ${c.outcome}">${c.outcome}</span>` : '—'}</td>
         <td>${c.duration_s}s · ${c.turns} turns</td>
         <td><button class="btn ghost small"
@@ -873,18 +975,18 @@ async function renderIntegrations() {
   INTEG_CFG = await api('/api/clients/' + id);
   const shopOn = !!(INTEG_CFG.shopify && INTEG_CFG.shopify.access_token);
   const tiles = [
-    ['shopify','🛍️','Shopify','Order & COD calls from your Shopify store', shopOn ? 'connected' : 'available'],
-    ['woo','🧩','WooCommerce','Order calls from your WordPress store', 'available'],
-    ['webhook','🔗','Universal webhook','Trigger a call from ANY system with one HTTP request', 'available'],
-    ['sheets','📋','Google Sheets / Zapier','Queue calls from a sheet row or any Zap', 'available'],
-    ['whatsapp','💬','WhatsApp follow-up','Send links & summaries after the call', 'soon'],
-    ['telephony','📞','Phone number (Twilio)','Real calls to actual phones — free trial works',
+    ['shopify','SHP','Shopify','Order & COD calls from your Shopify store', shopOn ? 'connected' : 'available'],
+    ['woo','WOO','WooCommerce','Order calls from your WordPress store', 'available'],
+    ['webhook','API','Universal webhook','Trigger a call from ANY system with one HTTP request', 'available'],
+    ['sheets','GSZ','Google Sheets / Zapier','Queue calls from a sheet row or any Zap', 'available'],
+    ['whatsapp','WA','WhatsApp follow-up','Send links & summaries after the call', 'soon'],
+    ['telephony','TEL','Phone number (Twilio)','Real calls to actual phones — free trial works',
       TEL.configured ? 'connected' : 'available'],
   ];
   document.getElementById('integGrid').innerHTML = tiles.map(t => `
     <div class="agent" style="cursor:${t[4] === 'soon' ? 'default' : 'pointer'}"
       ${t[4] !== 'soon' ? `onclick="integDetail('${t[0]}')"` : ''}>
-      <div class="top"><div class="avatar">${t[1]}</div>
+      <div class="top"><div class="avatar" style="font-size:11px;letter-spacing:.05em">${t[1]}</div>
         <div><h3>${t[2]}</h3><div class="who">${t[3]}</div></div></div>
       <div class="chips">${
         t[4] === 'connected' ? '<span class="chip ok">● connected</span>' :
@@ -920,10 +1022,10 @@ function integDetail(kind) {
     <p class="hint" style="margin-top:0">Don't wait for new orders — scan the store now and queue
       calls for everyone matching:</p>
     <div class="btns" style="margin-top:0">
-      <button class="btn ghost" onclick="shopifyPull('pending')">💳 All payment-pending orders</button>
+      <button class="btn ghost" onclick="shopifyPull('pending')">All payment-pending orders</button>
       <span style="display:flex;gap:6px;align-items:center">
         <input id="ig_tag" placeholder="or a tag, e.g. call-me" style="width:170px">
-        <button class="btn ghost" onclick="shopifyPull('tag')">🏷 Pull by tag</button>
+        <button class="btn ghost" onclick="shopifyPull('tag')">Pull by tag</button>
       </span>
     </div>`;
   if (kind === 'telephony') el.innerHTML = `
@@ -942,7 +1044,7 @@ TWILIO_AUTH_TOKEN=................
 TWILIO_FROM_NUMBER=+1..........
 PUBLIC_HOST=${location.host}</div>
     <p class="hint">After redeploy this tile turns <b>connected</b>, and every queued call shows a
-      <b>📞 Dial</b> button — the customer's actual phone rings and your agent talks to them.
+      <b>Dial</b> button — the customer's actual phone rings and your agent talks to them.
       Trial calls play a short "trial account" notice first; upgrading removes it.</p>
     <div class="msg ${TEL.configured ? 'ok' : ''}">${TEL.configured
       ? 'Configured ✓ — calling from ' + esc(TEL.from_number)
@@ -1018,7 +1120,7 @@ function showTranscript(i) {
       <span class="chip acc">${(a.category || '—').replace(/_/g,' ')}</span> ·
       ${esc(a.resolution || '')} · Caller spoke ${esc(a.language || '?')}</span></div>` : '';
   document.getElementById('trBody').innerHTML = head + ((c.transcript || []).map(e => {
-    if (e.type === 'tool') return `<div class="bub tool">⚙ ${esc(e.name)} ${esc(JSON.stringify(e.args || {}))}</div>`;
+    if (e.type === 'tool') return `<div class="bub tool">${esc(e.name)} ${esc(JSON.stringify(e.args || {}))}</div>`;
     return `<div class="bub ${e.type}"><div class="w">${e.type === 'user' ? 'Caller' : 'Agent'} · ${e.time}</div>${esc(e.text)}</div>`;
   }).join('') || '<span class="hint">Empty transcript.</span>');
   document.getElementById('mTranscript').classList.add('on');
