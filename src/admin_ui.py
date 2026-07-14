@@ -327,10 +327,20 @@ ADMIN_PAGE = r"""<!doctype html>
       <label>Personality <span style="text-transform:none">(who is the agent?)</span></label>
       <textarea id="f_persona" rows="3"
         placeholder="You are Priya, a warm and helpful front-desk agent at Hotel Sunrise in Jaipur..."></textarea>
-      <label>Speaking speed <span id="paceVal" style="text-transform:none"></span></label>
-      <input type="range" id="f_pace" min="0.8" max="1.3" step="0.05" value="1"
-        oninput="document.getElementById('paceVal').textContent = '· ' + this.value + 'x'">
-      <div class="hint">1.0 = natural human pace. Slightly lower for elderly customers, higher for quick confirmations.</div>
+      <div class="row2">
+        <div>
+          <label>Speaking speed <span id="paceVal" style="text-transform:none"></span></label>
+          <input type="range" id="f_pace" min="0.8" max="1.3" step="0.05" value="1"
+            oninput="document.getElementById('paceVal').textContent = '· ' + this.value + 'x'">
+          <div class="hint">1.0 = natural pace.</div>
+        </div>
+        <div>
+          <label>Expressiveness <span id="tempVal" style="text-transform:none"></span></label>
+          <input type="range" id="f_temp" min="0.3" max="1" step="0.05" value="0.8"
+            oninput="document.getElementById('tempVal').textContent = '· ' + this.value">
+          <div class="hint">Higher = livelier, more human intonation. Lower = calm and steady.</div>
+        </div>
+      </div>
     </div></div>
 
     <div class="tabpane" id="t-workflow"><div class="card" style="max-width:720px">
@@ -727,6 +737,8 @@ function fillForm(c) {
   set('f_persona', c.persona);
   set('f_pace', c.speech_pace || 1);
   document.getElementById('paceVal').textContent = '· ' + (c.speech_pace || 1) + 'x';
+  set('f_temp', c.voice_temperature || 0.8);
+  document.getElementById('tempVal').textContent = '· ' + (c.voice_temperature || 0.8);
   set('f_workflow', c.call_workflow); set('f_rules', c.call_rules);
   const k = c.knowledge || {};
   const friendly = !Object.keys(k).some(key =>
@@ -837,6 +849,7 @@ async function saveAgent() {
     tts_voice: document.getElementById('f_voice').value,
     persona: document.getElementById('f_persona').value.trim(),
     speech_pace: Number(document.getElementById('f_pace').value) || 1,
+    voice_temperature: Number(document.getElementById('f_temp').value) || 0.8,
     call_workflow: document.getElementById('f_workflow').value.trim(),
     call_rules: document.getElementById('f_rules').value.trim(),
     call_hours: { start: Number(document.getElementById('f_hstart').value),

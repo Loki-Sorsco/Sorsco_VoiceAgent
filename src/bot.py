@@ -139,6 +139,12 @@ async def run_bot(
             # Natural speed by default; per-client override via "speech_pace"
             # (e.g. 0.9 slower, 1.1 brisker).
             pace=float(client_cfg.get("speech_pace", 1.0)),
+            # Prosody variation — the flat default is the #1 "sounds like AI"
+            # tell. Higher = more expressive, human-like intonation.
+            temperature=float(client_cfg.get("voice_temperature", 0.8)),
+            # Render longer text chunks in one prosodic unit: full sentences
+            # get natural rise/fall instead of choppy per-fragment delivery.
+            max_chunk_length=250,
         ),
     )
 
