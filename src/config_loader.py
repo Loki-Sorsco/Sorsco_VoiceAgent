@@ -6,8 +6,18 @@ Onboarding a new client = writing a new JSON file, not new code.
 """
 
 import json
-from datetime import date
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+
+def current_time_line() -> str:
+    """Live IST date+time for the prompt — evaluated at call start."""
+    now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    return (
+        f"CURRENT DATE & TIME: {now.strftime('%A, %d %B %Y, %I:%M %p')} IST. "
+        "Use this for everything time-related — 'today', 'tomorrow', 'kal', 'abhi', "
+        "opening hours, and all bookings. NEVER guess the date."
+    )
 
 CLIENTS_DIR = Path(__file__).resolve().parent.parent / "clients"
 
@@ -117,5 +127,5 @@ TOOLS:
 - When the caller confirms they want to book: collect their full name and phone number, repeat the details back to confirm, and only then call notify_manager.
 - After notify_manager succeeds, tell the caller the manager will call them back shortly to confirm the booking.
 
-Today's date is {date.today().isoformat()}. Resolve relative dates like "kal" / "tomorrow" / "this weekend" to real dates before calling tools.
+{current_time_line()} Resolve relative dates like "kal" / "tomorrow" / "this weekend" to real dates before calling tools.
 """

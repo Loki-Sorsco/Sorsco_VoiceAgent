@@ -162,7 +162,7 @@ Use the business knowledge from your persona/knowledge to answer questions."""
 - Payment status: {order.get('financial_status') or 'unknown'}
 - Delivery address: {order.get('address') or 'not on file'}"""
 
-    from src.config_loader import identity_rules, voice_gender_rules
+    from src.config_loader import current_time_line, identity_rules, voice_gender_rules
 
     rules = (client_cfg.get("call_rules") or "").strip()
     rules_block = f"\nBUSINESS RULES — always obey these:\n{rules}\n" if rules else ""
@@ -172,6 +172,8 @@ Use the business knowledge from your persona/knowledge to answer questions."""
 {voice_gender_rules(client_cfg)}
 
 {identity_rules(client_cfg)}
+
+{current_time_line()}
 {rules_block}
 You are making an OUTBOUND phone call to a customer of {client_cfg['business_name']}.
 

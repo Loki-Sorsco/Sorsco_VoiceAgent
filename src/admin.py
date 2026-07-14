@@ -107,7 +107,7 @@ def register_admin(app: FastAPI):
     # -------------------------------------------------------- voice preview
 
     @app.get("/api/voice-preview/{voice}")
-    def voice_preview(voice: str, lang: str = "hi-IN"):
+    def voice_preview(voice: str, lang: str = "hi-IN", model: str = "bulbul:v3"):
         """Short Sarvam TTS sample so users can audition voices."""
         try:
             from sarvamai import SarvamAI
@@ -116,7 +116,7 @@ def register_admin(app: FastAPI):
             r = client.text_to_speech.convert(
                 text="Namaste! Main aapki AI agent hoon. Aapki kya madad kar sakti hoon?",
                 target_language_code=lang,
-                model="bulbul:v3",
+                model=model if model in ("bulbul:v2", "bulbul:v3") else "bulbul:v3",
                 speaker=voice,
             )
             audio = base64.b64decode(r.audios[0])

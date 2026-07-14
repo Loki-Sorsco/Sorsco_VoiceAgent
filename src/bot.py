@@ -130,22 +130,25 @@ async def run_bot(
         ),
     )
 
+    # Voice style per agent: "bulbul:v3" (expressive, temperature) or
+    # "bulbul:v2" (Sarvam's classic voices — anushka etc., what their demos use).
+    voice_model = client_cfg.get("voice_model", "bulbul:v3")
+    tts_kwargs = dict(
+        model=voice_model,
+        voice=client_cfg.get("tts_voice", "priya"),
+        language=client_cfg.get("default_language", "hi-IN"),
+        # Natural speed by default; per-client override via "speech_pace".
+        pace=float(client_cfg.get("speech_pace", 1.0)),
+        # Render longer text chunks in one prosodic unit: full sentences get
+        # natural rise/fall instead of choppy per-fragment delivery.
+        max_chunk_length=250,
+    )
+    if voice_model.startswith("bulbul:v3"):
+        # Prosody variation — the flat default is the #1 "sounds like AI" tell.
+        tts_kwargs["temperature"] = float(client_cfg.get("voice_temperature", 0.8))
     tts = SarvamTTSService(
         api_key=os.environ["SARVAM_API_KEY"],
-        settings=SarvamTTSService.Settings(
-            model="bulbul:v3",
-            voice=client_cfg.get("tts_voice", "priya"),
-            language=client_cfg.get("default_language", "hi-IN"),
-            # Natural speed by default; per-client override via "speech_pace"
-            # (e.g. 0.9 slower, 1.1 brisker).
-            pace=float(client_cfg.get("speech_pace", 1.0)),
-            # Prosody variation — the flat default is the #1 "sounds like AI"
-            # tell. Higher = more expressive, human-like intonation.
-            temperature=float(client_cfg.get("voice_temperature", 0.8)),
-            # Render longer text chunks in one prosodic unit: full sentences
-            # get natural rise/fall instead of choppy per-fragment delivery.
-            max_chunk_length=250,
-        ),
+        settings=SarvamTTSService.Settings(**tts_kwargs),
     )
 
     llm = create_llm()

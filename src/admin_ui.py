@@ -313,16 +313,16 @@ ADMIN_PAGE = r"""<!doctype html>
             <option value="kn-IN">Kannada</option><option value="gu-IN">Gujarati</option>
             <option value="pa-IN">Punjabi</option><option value="ml-IN">Malayalam</option>
           </select></div>
-        <div><label>Voice</label>
-          <div class="voice-row">
-            <select id="f_voice">
-              <option>priya</option><option>ritu</option><option>neha</option><option>pooja</option>
-              <option>simran</option><option>kavya</option><option>ishita</option><option>shreya</option>
-              <option>aditya</option><option>rahul</option><option>rohan</option><option>amit</option>
-              <option>dev</option><option>varun</option><option>kabir</option>
-            </select>
-            <button class="btn ghost small" onclick="previewVoice()" title="Hear this voice">Play</button>
-          </div></div>
+        <div><label>Voice style</label>
+          <select id="f_vmodel" onchange="syncVoices()">
+            <option value="bulbul:v3">Expressive (v3)</option>
+            <option value="bulbul:v2">Classic (v2 — Sarvam demo voices)</option>
+          </select></div>
+      </div>
+      <label>Voice</label>
+      <div class="voice-row">
+        <select id="f_voice"></select>
+        <button class="btn ghost small" onclick="previewVoice()" title="Hear this voice">Play</button>
       </div>
       <label>Personality <span style="text-transform:none">(who is the agent?)</span></label>
       <textarea id="f_persona" rows="3"
@@ -720,6 +720,18 @@ async function makeActive(id) {
 
 /* ---------------- editor ---------------- */
 let EDITING = null, RAW = {};
+const VOICE_SETS = {
+  'bulbul:v3': ['priya','ritu','neha','pooja','simran','kavya','ishita','shreya',
+                'aditya','rahul','rohan','amit','dev','varun','kabir'],
+  'bulbul:v2': ['anushka','manisha','vidya','arya','abhilash','karun','hitesh'],
+};
+function syncVoices(keep) {
+  const model = document.getElementById('f_vmodel').value;
+  const sel = document.getElementById('f_voice');
+  const current = keep || sel.value;
+  sel.innerHTML = VOICE_SETS[model].map(v => `<option>${v}</option>`).join('');
+  sel.value = VOICE_SETS[model].includes(current) ? current : VOICE_SETS[model][0];
+}
 function editAgent(id) {
   EDITING = id; RAW = {}; CHAT = [];
   const cl = document.getElementById('chatLog');
@@ -733,7 +745,9 @@ function editAgent(id) {
 function fillForm(c) {
   RAW = c;
   set('f_agent', c.agent_name); set('f_id', c.client_id); set('f_biz', c.business_name);
-  set('f_lang', c.default_language || 'hi-IN'); set('f_voice', c.tts_voice || 'priya');
+  set('f_lang', c.default_language || 'hi-IN');
+  set('f_vmodel', c.voice_model || 'bulbul:v3');
+  syncVoices(c.tts_voice || 'priya');
   set('f_persona', c.persona);
   set('f_pace', c.speech_pace || 1);
   document.getElementById('paceVal').textContent = '· ' + (c.speech_pace || 1) + 'x';
@@ -847,6 +861,7 @@ async function saveAgent() {
     default_language: lang,
     supported_languages: [...new Set([lang, 'hi-IN', 'en-IN'])],
     tts_voice: document.getElementById('f_voice').value,
+    voice_model: document.getElementById('f_vmodel').value,
     persona: document.getElementById('f_persona').value.trim(),
     speech_pace: Number(document.getElementById('f_pace').value) || 1,
     voice_temperature: Number(document.getElementById('f_temp').value) || 0.8,
@@ -875,7 +890,8 @@ async function saveAgent() {
 function previewVoice() {
   const v = document.getElementById('f_voice').value;
   const lang = document.getElementById('f_lang').value;
-  const a = new Audio('/api/voice-preview/' + v + '?lang=' + lang);
+  const model = document.getElementById('f_vmodel').value;
+  const a = new Audio('/api/voice-preview/' + v + '?lang=' + lang + '&model=' + encodeURIComponent(model));
   a.play().catch(() => toast('Preview failed', true));
   toast('Playing ' + v + '…');
 }
