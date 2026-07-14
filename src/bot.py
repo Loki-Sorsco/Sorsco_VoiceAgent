@@ -139,13 +139,11 @@ async def run_bot(
         language=client_cfg.get("default_language", "hi-IN"),
         # Natural speed by default; per-client override via "speech_pace".
         pace=float(client_cfg.get("speech_pace", 1.0)),
-        # Render longer text chunks in one prosodic unit: full sentences get
-        # natural rise/fall instead of choppy per-fragment delivery.
-        max_chunk_length=250,
     )
     if voice_model.startswith("bulbul:v3"):
-        # Prosody variation — the flat default is the #1 "sounds like AI" tell.
-        tts_kwargs["temperature"] = float(client_cfg.get("voice_temperature", 0.8))
+        # Prosody variation. Keep near Sarvam's stable default (0.6) — higher
+        # values add expressiveness but can glitch/warble the synthesis.
+        tts_kwargs["temperature"] = float(client_cfg.get("voice_temperature", 0.65))
     tts = SarvamTTSService(
         api_key=os.environ["SARVAM_API_KEY"],
         settings=SarvamTTSService.Settings(**tts_kwargs),
@@ -174,12 +172,15 @@ async def run_bot(
             messages.append({"role": "system", "content": note})
 
     context = LLMContext(messages=messages, tools=tools)
-    # Slightly stricter than the defaults to resist speaker echo, but low
-    # enough that a quiet microphone still triggers turns. min_volume is the
-    # sensitive knob: too high (>0.7) and quiet mics never get a reply.
-    vad = SileroVADAnalyzer(
-        params=VADParams(confidence=0.75, min_volume=0.5, start_secs=0.3)
+    # Browser/mic: slightly strict to resist speaker echo but quiet-mic friendly.
+    # Phone lines: stricter — street/background noise on Indian mobile calls
+    # otherwise triggers barge-in and cuts the agent off mid-sentence.
+    vad_params = (
+        VADParams(confidence=0.8, min_volume=0.6, start_secs=0.4)
+        if telephony
+        else VADParams(confidence=0.75, min_volume=0.5, start_secs=0.3)
     )
+    vad = SileroVADAnalyzer(params=vad_params)
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(vad_analyzer=vad),

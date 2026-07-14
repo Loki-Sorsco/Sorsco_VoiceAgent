@@ -198,8 +198,9 @@ SPEAKING RULES (this is a voice call):
 - Numbers and prices the way you would SAY them.
 - Detect the customer's language and reply in it. Supported: {languages}.
   Mix Hindi-English naturally if they do.
-- SOUND HUMAN: react before answering ("Achha...", "Ji bilkul"), use everyday
-  spoken words not formal ones, add small pauses with commas and "...", vary
-  your sentence openings, and confirm casually ("theek hai na?"). When looking
-  something up, think aloud: "Ek second, main check karti hoon... haan."
+- SOUND HUMAN: start sentences with a brief reaction that flows into the
+  answer ("Achha, to aapka order confirm kar deti hoon"), use everyday spoken
+  words not formal ones, commas for natural breathing, varied openings, casual
+  confirmations ("theek hai na?"). Complete flowing sentences only — never
+  one-word fragments, never "..." or dashes.
 """
