@@ -315,8 +315,9 @@ ADMIN_PAGE = r"""<!doctype html>
           </select></div>
         <div><label>Voice style</label>
           <select id="f_vmodel" onchange="syncVoices()">
-            <option value="bulbul:v3">Expressive (v3)</option>
-            <option value="bulbul:v2">Classic (v2 — Sarvam demo voices)</option>
+            <option value="bulbul:v3">Premium — Expressive (Sarvam v3)</option>
+            <option value="bulbul:v2">Premium — Classic (Sarvam v2)</option>
+            <option value="free">Free — ₹0, runs on your server (Kokoro)</option>
           </select></div>
       </div>
       <label>Voice</label>
@@ -724,6 +725,7 @@ const VOICE_SETS = {
   'bulbul:v3': ['priya','ritu','neha','pooja','simran','kavya','ishita','shreya',
                 'aditya','rahul','rohan','amit','dev','varun','kabir'],
   'bulbul:v2': ['anushka','manisha','vidya','arya','abhilash','karun','hitesh'],
+  'free': ['hf_alpha','hf_beta','hm_omega','hm_psi'],
 };
 function syncVoices(keep) {
   const model = document.getElementById('f_vmodel').value;
@@ -746,7 +748,7 @@ function fillForm(c) {
   RAW = c;
   set('f_agent', c.agent_name); set('f_id', c.client_id); set('f_biz', c.business_name);
   set('f_lang', c.default_language || 'hi-IN');
-  set('f_vmodel', c.voice_model || 'bulbul:v3');
+  set('f_vmodel', c.voice_engine === 'free' ? 'free' : (c.voice_model || 'bulbul:v3'));
   syncVoices(c.tts_voice || 'priya');
   set('f_persona', c.persona);
   set('f_pace', c.speech_pace || 1);
@@ -861,7 +863,9 @@ async function saveAgent() {
     default_language: lang,
     supported_languages: [...new Set([lang, 'hi-IN', 'en-IN'])],
     tts_voice: document.getElementById('f_voice').value,
-    voice_model: document.getElementById('f_vmodel').value,
+    voice_engine: document.getElementById('f_vmodel').value === 'free' ? 'free' : 'sarvam',
+    voice_model: document.getElementById('f_vmodel').value === 'free'
+      ? (RAW.voice_model || 'bulbul:v3') : document.getElementById('f_vmodel').value,
     persona: document.getElementById('f_persona').value.trim(),
     speech_pace: Number(document.getElementById('f_pace').value) || 1,
     voice_temperature: Number(document.getElementById('f_temp').value) || 0.8,

@@ -24,8 +24,6 @@ from pipecat.processors.aggregators.llm_response_universal import (
     LLMUserAggregatorParams,
 )
 from pipecat.services.llm_service import FunctionCallParams
-from pipecat.services.sarvam.stt import SarvamSTTService
-from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.base_transport import BaseTransport
 
 from src.call_events import append_history, log_event, read_events, reset_events
@@ -71,25 +69,6 @@ TOOL_SCHEMAS = ToolsSchema(
 )
 
 
-# Codes Sarvam's streaming STT accepts for the language parameter.
-_SARVAM_STT_CODES = {
-    "hi-IN", "bn-IN", "kn-IN", "ml-IN", "mr-IN", "od-IN", "pa-IN", "ta-IN",
-    "te-IN", "en-IN", "gu-IN", "as-IN", "ur-IN", "ne-IN",
-}
-
-
-def _stt_language(client_cfg: dict):
-    """Sarvam language code to lock transcription to, or None for auto-detect.
-
-    Sarvam expects its own region codes ('hi-IN'); passing anything else kills
-    the STT stream mid-call (the 'agent goes deaf' bug).
-    """
-    if client_cfg.get("stt_language", "locked") == "auto":
-        return None
-    code = client_cfg.get("default_language", "hi-IN")
-    return code if code in _SARVAM_STT_CODES else None
-
-
 async def _handle_check_availability(params: FunctionCallParams):
     result = check_availability(**params.arguments)
     log_event("tool", name="check_availability", args=params.arguments, result=result)
@@ -118,36 +97,12 @@ async def run_bot(
     caller_phone: the customer's number (for cross-call memory), if known.
     """
     phone = caller_phone or (call_task or {}).get("customer_phone", "")
-    stt = SarvamSTTService(
-        api_key=os.environ["SARVAM_API_KEY"],
-        settings=SarvamSTTService.Settings(
-            model="saaras:v3",
-            # Lock transcription to the agent's language: auto-detect on 8kHz
-            # phone audio misfires into wrong scripts (Hindi heard as Odia).
-            # Set "stt_language": "auto" in the client JSON to re-enable
-            # auto-detection for genuinely multilingual lines.
-            language=_stt_language(client_cfg),
-        ),
-    )
 
-    # Voice style per agent: "bulbul:v3" (expressive, temperature) or
-    # "bulbul:v2" (Sarvam's classic voices — anushka etc., what their demos use).
-    voice_model = client_cfg.get("voice_model", "bulbul:v3")
-    tts_kwargs = dict(
-        model=voice_model,
-        voice=client_cfg.get("tts_voice", "priya"),
-        language=client_cfg.get("default_language", "hi-IN"),
-        # Natural speed by default; per-client override via "speech_pace".
-        pace=float(client_cfg.get("speech_pace", 1.0)),
-    )
-    if voice_model.startswith("bulbul:v3"):
-        # Prosody variation. Keep near Sarvam's stable default (0.6) — higher
-        # values add expressiveness but can glitch/warble the synthesis.
-        tts_kwargs["temperature"] = float(client_cfg.get("voice_temperature", 0.65))
-    tts = SarvamTTSService(
-        api_key=os.environ["SARVAM_API_KEY"],
-        settings=SarvamTTSService.Settings(**tts_kwargs),
-    )
+    # Per-agent voice engine: Sarvam (premium) or Groq-Whisper + Kokoro (free).
+    from src.voice_factory import create_stt, create_tts
+
+    stt = create_stt(client_cfg)
+    tts = create_tts(client_cfg)
 
     llm = create_llm()
     if call_task:

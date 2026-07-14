@@ -24,6 +24,7 @@ CLIENTS_DIR = Path(__file__).resolve().parent.parent / "clients"
 FEMALE_VOICES = {
     "priya", "ritu", "neha", "pooja", "simran", "kavya", "ishita", "shreya",
     "roopa", "amelia", "sophia", "anushka", "manisha", "vidya", "arya",
+    "hf_alpha", "hf_beta",  # Kokoro (free engine) female Hindi voices
 }
 
 

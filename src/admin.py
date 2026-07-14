@@ -108,7 +108,33 @@ def register_admin(app: FastAPI):
 
     @app.get("/api/voice-preview/{voice}")
     def voice_preview(voice: str, lang: str = "hi-IN", model: str = "bulbul:v3"):
-        """Short Sarvam TTS sample so users can audition voices."""
+        """Short TTS sample so users can audition voices (Sarvam or free Kokoro)."""
+        if model == "free":
+            try:
+                import io as _io
+                import wave as _wave
+
+                import numpy as np
+
+                from src.voice_factory import _kokoro_instance
+
+                k = _kokoro_instance()
+                samples, sr = k.create(
+                    "Namaste! Main aapki AI agent hoon. Aapki kya madad kar sakti hoon?",
+                    voice=voice if voice.startswith(("hf_", "hm_")) else "hf_alpha",
+                    lang="en-us" if lang == "en-IN" else "hi",
+                )
+                pcm = (np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes()
+                buf = _io.BytesIO()
+                with _wave.open(buf, "wb") as w:
+                    w.setnchannels(1)
+                    w.setsampwidth(2)
+                    w.setframerate(sr)
+                    w.writeframes(pcm)
+                return Response(content=buf.getvalue(), media_type="audio/wav")
+            except Exception as e:
+                logger.warning(f"Kokoro preview failed: {e}")
+                raise HTTPException(500, f"Preview failed: {e}")
         try:
             from sarvamai import SarvamAI
 

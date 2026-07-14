@@ -9,6 +9,11 @@ WORKDIR /app
 COPY requirements-server.txt .
 RUN pip install --no-cache-dir -r requirements-server.txt
 
+# Bake the free-voice (Kokoro) model files into the image so the first call
+# doesn't wait on a ~330MB download.
+RUN python -c "from pipecat.services.kokoro.tts import KOKORO_CACHE_DIR, _ensure_model_files; \
+_ensure_model_files(KOKORO_CACHE_DIR / 'kokoro-v1.0.onnx', KOKORO_CACHE_DIR / 'voices-v1.0.bin')"
+
 COPY . .
 
 EXPOSE 7860

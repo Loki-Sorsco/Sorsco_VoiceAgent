@@ -10,6 +10,7 @@ to it before wiring up real telephony (Twilio/Exotel).
 | Piece | What we use |
 |---|---|
 | Orchestration (latency, barge-in, VAD) | [Pipecat](https://github.com/pipecat-ai/pipecat) |
+| Voice engines (per agent) | **Sarvam** (premium Indic quality, paid credits) or **Free**: Groq Whisper STT + self-hosted Kokoro TTS (₹0, unlimited) |
 | STT (speech → text, 11+ Indian languages) | Sarvam AI *Saarika* (free credits on signup) |
 | Brain (conversation + tool calling) | Groq Llama 3.3 70B (FREE, ~1000 req/day) — or Gemini/Claude via `LLM_PROVIDER` |
 | TTS (text → speech, Indian voices) | Sarvam AI *Bulbul* |

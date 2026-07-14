@@ -8,7 +8,7 @@
     "en-IN",
     "mr-IN"
   ],
-  "tts_voice": "ritu",
+  "tts_voice": "hf_alpha",
   "persona": "You are Asha, a polite receptionist at City Clinic in Mumbai.",
   "knowledge": {
     "timings": "Mon-Sat 9am-8pm",
@@ -20,5 +20,25 @@
       }
     ],
     "location": "Andheri West, Mumbai"
-  }
+  },
+  "triggers": {
+    "cod_confirm": {
+      "enabled": true,
+      "min_value": 0
+    },
+    "pending_payment": {
+      "enabled": true,
+      "min_value": 0
+    },
+    "abandoned_checkout": {
+      "enabled": false,
+      "min_value": 0
+    }
+  },
+  "shopify": {
+    "domain": "",
+    "access_token": "",
+    "webhook_secret": ""
+  },
+  "voice_engine": "free"
 }
