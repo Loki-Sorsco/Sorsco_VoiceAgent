@@ -149,7 +149,15 @@ def register_admin(app: FastAPI):
             return Response(content=audio, media_type="audio/wav")
         except Exception as e:
             logger.warning(f"Voice preview failed: {e}")
-            raise HTTPException(500, f"Preview failed: {e}")
+            msg = str(e)
+            if "insufficient_quota" in msg or "No credits" in msg or "402" in msg:
+                raise HTTPException(
+                    402,
+                    "Sarvam has no credits left — Premium voices are paused. "
+                    "Top up at dashboard.sarvam.ai, or switch Voice style to "
+                    "'Free' (runs on your server, ₹0).",
+                )
+            raise HTTPException(500, f"Preview failed: {msg[:200]}")
 
     # ----------------------------------------------------- shopify webhooks
 

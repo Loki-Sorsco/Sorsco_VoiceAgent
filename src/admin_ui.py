@@ -891,13 +891,22 @@ async function saveAgent() {
     toast('Agent saved'); show('agents');
   } catch(e) { toast(e.message, true); }
 }
-function previewVoice() {
+async function previewVoice() {
   const v = document.getElementById('f_voice').value;
   const lang = document.getElementById('f_lang').value;
   const model = document.getElementById('f_vmodel').value;
-  const a = new Audio('/api/voice-preview/' + v + '?lang=' + lang + '&model=' + encodeURIComponent(model));
-  a.play().catch(() => toast('Preview failed', true));
-  toast('Playing ' + v + '…');
+  toast('Generating ' + v + '…');
+  try {
+    const r = await fetch('/api/voice-preview/' + v + '?lang=' + lang + '&model=' + encodeURIComponent(model));
+    if (!r.ok) {
+      let d; try { d = (await r.json()).detail; } catch(e) {}
+      toast(d || 'Preview failed', true);
+      return;
+    }
+    const blob = await r.blob();
+    new Audio(URL.createObjectURL(blob)).play();
+    toast('Playing ' + v);
+  } catch(e) { toast('Preview failed: ' + e.message, true); }
 }
 
 /* ---------------- queue & history ---------------- */
