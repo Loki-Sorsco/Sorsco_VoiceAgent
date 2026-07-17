@@ -725,7 +725,7 @@ const VOICE_SETS = {
   'bulbul:v3': ['priya','ritu','neha','pooja','simran','kavya','ishita','shreya',
                 'aditya','rahul','rohan','amit','dev','varun','kabir'],
   'bulbul:v2': ['anushka','manisha','vidya','arya','abhilash','karun','hitesh'],
-  'free': ['hf_alpha','hf_beta','hm_omega','hm_psi'],
+  'free': ['swara','madhur','neerja','prabhat','hf_alpha','hf_beta','hm_omega','hm_psi'],
 };
 function syncVoices(keep) {
   const model = document.getElementById('f_vmodel').value;

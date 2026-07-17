@@ -25,6 +25,9 @@ FEMALE_VOICES = {
     "priya", "ritu", "neha", "pooja", "simran", "kavya", "ishita", "shreya",
     "roopa", "amelia", "sophia", "anushka", "manisha", "vidya", "arya",
     "hf_alpha", "hf_beta",  # Kokoro (free engine) female Hindi voices
+    # Edge neural (free engine) female voices
+    "swara", "neerja", "pallavi", "shruti", "tanishaa", "aarohi",
+    "dhwani", "sapna", "sobhana",
 }
 
 

@@ -56,18 +56,31 @@ def create_stt(client_cfg: dict):
 
 def create_tts(client_cfg: dict):
     if client_cfg.get("voice_engine", "sarvam") == "free":
-        from pipecat.services.kokoro.tts import KokoroTTSService
-        from pipecat.transcriptions.language import Language
+        voice = client_cfg.get("tts_voice", "swara")
 
-        voice = client_cfg.get("tts_voice", "hf_alpha")
-        if voice not in KOKORO_VOICES:
-            voice = "hf_alpha"
-        # Kokoro speaks hi/en (not other Indic languages) — default to Hindi.
-        lang = Language.EN if client_cfg.get("default_language") == "en-IN" else Language.HI
-        logger.info(f"Free voice engine: Kokoro '{voice}' ({lang}) + Groq Whisper")
-        return KokoroTTSService(
-            settings=KokoroTTSService.Settings(voice=voice, language=lang),
-        )
+        if voice in KOKORO_VOICES:
+            from pipecat.services.kokoro.tts import KokoroTTSService
+            from pipecat.transcriptions.language import Language
+
+            lang = Language.EN if client_cfg.get("default_language") == "en-IN" else Language.HI
+            logger.info(f"Free voice engine: Kokoro '{voice}' ({lang})")
+            return KokoroTTSService(
+                settings=KokoroTTSService.Settings(voice=voice, language=lang),
+            )
+
+        # Default free voice: Microsoft Edge neural (much more human).
+        from src.edge_tts_service import EDGE_BY_LANGUAGE, EDGE_FEMALE, EDGE_VOICES, EdgeTTSService
+
+        if voice not in EDGE_VOICES:
+            voice = "swara"
+        # If the agent's language differs from the voice's, switch to the
+        # regional equivalent of the same gender (Tamil agent -> Pallavi).
+        lang_pair = EDGE_BY_LANGUAGE.get(client_cfg.get("default_language", "hi-IN"))
+        if lang_pair and voice not in lang_pair:
+            voice = lang_pair[0] if voice in EDGE_FEMALE else lang_pair[1]
+        rate_pct = int(round((float(client_cfg.get("speech_pace", 1.0)) - 1.0) * 100))
+        logger.info(f"Free voice engine: Edge neural '{voice}' ({rate_pct:+d}%)")
+        return EdgeTTSService(voice=voice, rate_pct=rate_pct)
 
     from pipecat.services.sarvam.tts import SarvamTTSService
 

@@ -107,8 +107,26 @@ def register_admin(app: FastAPI):
     # -------------------------------------------------------- voice preview
 
     @app.get("/api/voice-preview/{voice}")
-    def voice_preview(voice: str, lang: str = "hi-IN", model: str = "bulbul:v3"):
-        """Short TTS sample so users can audition voices (Sarvam or free Kokoro)."""
+    async def voice_preview(voice: str, lang: str = "hi-IN", model: str = "bulbul:v3"):
+        """Short TTS sample so users can audition voices (Sarvam, Edge, Kokoro)."""
+        from src.edge_tts_service import EDGE_VOICES
+
+        if model == "free" and voice in EDGE_VOICES:
+            try:
+                import edge_tts
+
+                text = ("Namaste! Main aapki AI agent hoon. Aapki kya madad kar sakti hoon?"
+                        if voice not in ("neerja", "prabhat")
+                        else "Hello! I am your AI agent. How may I help you today?")
+                communicate = edge_tts.Communicate(text, EDGE_VOICES[voice])
+                mp3 = bytearray()
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        mp3.extend(chunk["data"])
+                return Response(content=bytes(mp3), media_type="audio/mpeg")
+            except Exception as e:
+                logger.warning(f"Edge preview failed: {e}")
+                raise HTTPException(500, f"Preview failed: {e}")
         if model == "free":
             try:
                 import io as _io

@@ -8,3 +8,4 @@ uvicorn
 openai
 openpyxl
 kokoro-onnx
+edge-tts

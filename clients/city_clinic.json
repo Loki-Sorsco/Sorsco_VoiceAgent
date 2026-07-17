@@ -8,7 +8,7 @@
     "en-IN",
     "mr-IN"
   ],
-  "tts_voice": "hf_alpha",
+  "tts_voice": "swara",
   "persona": "You are Asha, a polite receptionist at City Clinic in Mumbai.",
   "knowledge": {
     "timings": "Mon-Sat 9am-8pm",
