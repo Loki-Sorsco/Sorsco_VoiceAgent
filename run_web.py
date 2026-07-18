@@ -107,6 +107,9 @@ async def bot(runner_args: RunnerArguments):
         call_data = getattr(runner_args, "call_data", None)
         body = (call_data.get("body") if isinstance(call_data, dict)
                 else getattr(call_data, "body", None)) or {}
+        # Twilio CallSid (lets the platform live-transfer this call on handoff).
+        call_sid = (call_data.get("call_id") if isinstance(call_data, dict)
+                    else getattr(call_data, "call_id", None))
         task_id = body.get("task_id")
         if task_id:
             from src.store import get_task
@@ -116,7 +119,7 @@ async def bot(runner_args: RunnerArguments):
                 client_cfg = load_client(call_task["client_id"])
                 await run_bot(
                     transport, client_cfg, handle_sigint=False,
-                    call_task=call_task, telephony=True,
+                    call_task=call_task, telephony=True, call_sid=call_sid,
                 )
                 return
         # Inbound phone call with no task: normal receptionist, phone audio.
@@ -127,7 +130,7 @@ async def bot(runner_args: RunnerArguments):
                 get_active_client_id(default=os.environ.get("CLIENT_ID", "hotel_sunrise"))
             )
             await run_bot(transport, client_cfg, handle_sigint=False,
-                          telephony=True, caller_phone=from_number)
+                          telephony=True, caller_phone=from_number, call_sid=call_sid)
             return
 
     # If an order call was "taken" in /admin, this browser connection becomes
@@ -149,6 +152,9 @@ async def bot(runner_args: RunnerArguments):
 if __name__ == "__main__":
     from pipecat.runner import run as _runner
 
+    from src.platform.platform_api import register_platform
+
     _runner.app.add_middleware(RewritePublicWsUrl)
     register_admin(_runner.app)
+    register_platform(_runner.app)  # /platform dashboard, /v1 API, /widget.js
     _runner.main()

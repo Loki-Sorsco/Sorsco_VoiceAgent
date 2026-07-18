@@ -88,6 +88,7 @@ async def run_bot(
     call_task: dict | None = None,
     telephony: bool = False,
     caller_phone: str | None = None,
+    call_sid: str | None = None,
 ):
     """Run one call session on the given transport.
 
@@ -95,6 +96,7 @@ async def run_bot(
     pending payment, abandoned cart). None = normal inbound receptionist call.
     telephony: True for real phone lines (8 kHz audio).
     caller_phone: the customer's number (for cross-call memory), if known.
+    call_sid: the Twilio CallSid (enables live transfer on human handoff).
     """
     phone = caller_phone or (call_task or {}).get("customer_phone", "")
 
@@ -104,17 +106,35 @@ async def run_bot(
     stt = create_stt(client_cfg)
     tts = create_tts(client_cfg)
 
+    # Platform tool belt (handoff, lead capture, payments, SMS, lookup...) —
+    # which tools exist depends on the client's connectors/config.
+    from src.platform.agent_tools import build_platform_tools, platform_tools_prompt
+    from src.platform.webhooks_out import emit
+
+    platform_schemas, platform_handlers = build_platform_tools(
+        client_cfg, caller_phone=phone, call_sid=call_sid
+    )
+
     llm = create_llm()
     if call_task:
         register_order_tools(llm, client_cfg, call_task)
         system_prompt = build_outbound_prompt(client_cfg, call_task)
-        tools = ORDER_TOOLS
+        # Order calls stay focused: from the platform belt they only get the
+        # human-handoff escape hatch.
+        extra = [s for s in platform_schemas if s.name == "transfer_to_human"]
+        tools = ToolsSchema(standard_tools=[*ORDER_TOOLS.standard_tools, *extra])
         update_task(call_task["task_id"], status="in_progress")
     else:
         llm.register_function("check_availability", _handle_check_availability)
         llm.register_function("notify_manager", _handle_notify_manager)
         system_prompt = build_system_prompt(client_cfg)
-        tools = TOOL_SCHEMAS
+        extra = platform_schemas
+        tools = ToolsSchema(standard_tools=[*TOOL_SCHEMAS.standard_tools, *extra])
+    for schema in extra:
+        llm.register_function(schema.name, platform_handlers[schema.name])
+    hints = platform_tools_prompt(extra)
+    if hints:
+        system_prompt = f"{system_prompt}\n\n{hints}"
 
     # Cross-call memory: if we've spoken with this number before, give the
     # agent a short recap so it treats them as a returning customer.
@@ -149,6 +169,15 @@ async def run_bot(
         agent=client_cfg["agent_name"],
         order_call=call_task["reason"] if call_task else None,
     )
+    import uuid as _uuid
+
+    call_id = _uuid.uuid4().hex[:12]
+    emit("call.started", client_cfg, {
+        "call_id": call_id,
+        "kind": call_task["flow"] if call_task else "inbound",
+        "customer_name": (call_task or {}).get("customer_name", ""),
+        "customer_phone": phone,
+    })
 
     @user_aggregator.event_handler("on_user_turn_message_added")
     async def on_user_message(aggregator, message):
@@ -236,6 +265,7 @@ async def run_bot(
         try:
             events = read_events()
             record = {
+                "call_id": call_id,
                 "client_id": client_cfg["client_id"],
                 "client": client_cfg["business_name"],
                 "agent": client_cfg["agent_name"],
@@ -263,5 +293,16 @@ async def run_bot(
             except Exception as e:
                 logger.warning(f"Post-call analysis skipped: {e}")
             append_history(record)
+            emit("call.ended", client_cfg, {
+                "call_id": call_id,
+                "kind": record["kind"],
+                "outcome": outcome,
+                "duration_s": record["duration_s"],
+                "turns": record["turns"],
+                "customer_name": record["customer_name"],
+                "customer_phone": phone,
+                "analysis": record.get("analysis"),
+                "transcript": record["transcript"],
+            })
         except Exception as e:
             logger.warning(f"Could not write call history: {e}")

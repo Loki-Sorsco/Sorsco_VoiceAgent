@@ -8,3 +8,4 @@ data/active_client.txt
 data/active_task.json
 data/call_queue.json
 data/orders.json
+data/platform/

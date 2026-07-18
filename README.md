@@ -1,9 +1,25 @@
-# Multilingual Voice Agent — MVP
+# Universal AI Voice Agent Platform
 
-A config-driven phone-call voice bot. The brain is generic; each client is a JSON
-config (persona + knowledge + tools). This MVP ships one client — **Hotel Sunrise,
-Jaipur** — and runs locally with your **microphone and speakers**, so you can talk
-to it before wiring up real telephony (Twilio/Exotel).
+A config-driven voice-agent **platform**: the brain is generic; each business
+(hotel, clinic, store...) is a JSON config (persona + knowledge + tools) plus
+dashboard-managed integrations. Any business can plug the agent into their
+existing stack:
+
+- **White-label dashboard** at `/platform` — role-based logins (admin /
+  supervisor / agent), no-code agent configuration, live monitoring, analytics.
+- **Embeddable widget** — one `<script>` tag puts a voice call button on any
+  website or admin portal.
+- **Public REST API** (`/v1`) with per-client keys — queue calls, read
+  transcripts/analytics, manage the agent from your own code.
+- **Human handoff** — the agent transfers to staff with full context (live
+  phone-call transfer on Twilio).
+- **Connectors** — Shopify, WooCommerce, Razorpay, Stripe, Twilio SMS,
+  Calendly, Google Sheets, and a generic REST bridge for EMRs/PMSs/CRMs.
+- **Signed outbound webhooks** — call/lead/handoff events pushed into the
+  business's systems.
+
+**→ Platform guide: [PLATFORM.md](PLATFORM.md)** — the rest of this README
+covers the voice engine and local development.
 
 ## Stack
 
@@ -158,9 +174,12 @@ No changes to the pipeline.
 
 ## Next steps (after the demo call feels good)
 
-- **Telephony**: swap `LocalAudioTransport` for a Twilio/Exotel websocket transport
-  (Pipecat supports this) — the rest of the pipeline is unchanged.
+- **Concurrent call sessions**: the runner currently hosts one live call at a
+  time (browser demo constraint); telephony calls already carry their own
+  task/client context.
 - **Flow engine**: structured question modules with branching conditions (the
   medical-assessment use case).
-- **Admin dashboard**: create client configs in a UI instead of editing JSON.
-- **Real connectors**: hotel PMS/database, WhatsApp/email for manager alerts.
+- **More connectors**: WhatsApp Business, Zoho/HubSpot CRM, direct PMS
+  integrations (the generic REST connector covers these today).
+- **Postgres**: swap the JSON stores (`src/store.py`, `src/platform/records.py`,
+  `src/platform/auth.py`) when call volume demands it.
